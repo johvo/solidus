@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'discard'
-
 module Spree
   # Products represent an entity for sale in a store. Products can have
   # variations, called variants. Product properties include description,
@@ -15,11 +13,7 @@ module Spree
     extend FriendlyId
     friendly_id :slug_candidates, use: :history
 
-    acts_as_paranoid
-    include Spree::ParanoiaDeprecations
-
-    include Discard::Model
-    self.discard_column = :deleted_at
+    include Spree::SoftDeletable
 
     after_discard do
       variants_including_master.discard_all
@@ -48,7 +42,7 @@ module Spree
     belongs_to :shipping_category, class_name: 'Spree::ShippingCategory', inverse_of: :products, optional: true
 
     has_one :master,
-      -> { where(is_master: true).with_deleted },
+      -> { where(is_master: true).with_discarded },
       inverse_of: :product,
       class_name: 'Spree::Variant',
       autosave: true
@@ -121,7 +115,7 @@ module Spree
     validates :name, presence: true
     validates :price, presence: true, if: proc { Spree::Config[:require_master_price] }
     validates :shipping_category_id, presence: true
-    validates :slug, presence: true, uniqueness: { allow_blank: true }
+    validates :slug, presence: true, uniqueness: { allow_blank: true, case_sensitive: true }
 
     attr_accessor :option_values_hash
 
@@ -134,7 +128,7 @@ module Spree
     self.whitelisted_ransackable_attributes = %w[name slug]
 
     def self.ransackable_scopes(_auth_object = nil)
-      %i(with_deleted with_variant_sku_cont)
+      %i(with_discarded with_variant_sku_cont)
     end
 
     # @return [Boolean] true if there are any variants
@@ -174,11 +168,22 @@ module Spree
     end
 
     # Determines if product is available. A product is available if it has not
-    # been deleted and the available_on date is in the past.
+    # been deleted, the available_on date is in the past
+    # and the discontinue_on date is nil or in the future.
     #
     # @return [Boolean] true if this product is available
     def available?
-      !(available_on.nil? || available_on.future?) && !deleted?
+      !deleted? && available_on&.past? && !discontinued?
+    end
+
+    # Determines if product is discontinued.
+    #
+    # A product is discontinued if the discontinue_on date
+    # is not nil and in the past.
+    #
+    # @return [Boolean] true if this product is discontinued
+    def discontinued?
+      !!discontinue_on&.past?
     end
 
     # Groups variants by the specified option type.
@@ -381,11 +386,11 @@ module Spree
 
     # Iterate through this product's taxons and taxonomies and touch their timestamps in a batch
     def touch_taxons
-      taxons_to_touch = taxons.map(&:self_and_ancestors).flatten.uniq
+      taxons_to_touch = taxons.flat_map(&:self_and_ancestors).uniq
       unless taxons_to_touch.empty?
         Spree::Taxon.where(id: taxons_to_touch.map(&:id)).update_all(updated_at: Time.current)
 
-        taxonomy_ids_to_touch = taxons_to_touch.map(&:taxonomy_id).flatten.uniq
+        taxonomy_ids_to_touch = taxons_to_touch.flat_map(&:taxonomy_id).uniq
         Spree::Taxonomy.where(id: taxonomy_ids_to_touch).update_all(updated_at: Time.current)
       end
     end

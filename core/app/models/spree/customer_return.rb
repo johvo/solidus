@@ -17,6 +17,8 @@ module Spree
 
     accepts_nested_attributes_for :return_items
 
+    self.whitelisted_ransackable_attributes = ['number']
+
     extend DisplayMoney
     money_methods :pre_tax_total, :total, :total_excluding_vat, :amount
     deprecate display_pre_tax_total: :display_total_excluding_vat, deprecator: Spree::Deprecation
@@ -25,11 +27,11 @@ module Spree
     delegate :id, to: :order, prefix: true, allow_nil: true
 
     def total
-      return_items.map(&:total).sum
+      return_items.sum(&:total)
     end
 
     def total_excluding_vat
-      return_items.map(&:total_excluding_vat).sum
+      return_items.sum(&:total_excluding_vat)
     end
     alias pre_tax_total total_excluding_vat
     deprecate pre_tax_total: :total_excluding_vat, deprecator: Spree::Deprecation

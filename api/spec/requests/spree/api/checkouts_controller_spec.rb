@@ -59,12 +59,8 @@ module Spree
       end
 
       it "will return an error if the order cannot transition" do
-        skip "not sure if this test is valid"
-        order.bill_address = nil
-        order.save
-        order.update_column(:state, "address")
+        order.update!(state: 'address', ship_address: nil)
         put spree.api_checkout_path(order.to_param), params: { order_token: order.guest_token }
-        # Order has not transitioned
         expect(response.status).to eq(422)
       end
 
@@ -75,8 +71,7 @@ module Spree
 
         let(:address) do
           {
-            firstname:  'John',
-            lastname:   'Doe',
+            name:  'John Doe',
             address1:   '7735 Old Georgetown Road',
             city:       'Bethesda',
             phone:      '3014445002',
@@ -93,8 +88,8 @@ module Spree
               ship_address_attributes: address
             } }
           expect(json_response['state']).to eq('delivery')
-          expect(json_response['bill_address']['firstname']).to eq('John')
-          expect(json_response['ship_address']['firstname']).to eq('John')
+          expect(json_response['bill_address']['name']).to eq('John Doe')
+          expect(json_response['ship_address']['name']).to eq('John Doe')
           expect(response.status).to eq(200)
         end
 
@@ -312,10 +307,13 @@ module Spree
             }
           end
 
+          before do
+            expect(Spree::Deprecation).to receive(:warn).
+              with(/^Passing existing_card_id to PaymentCreate is deprecated/, any_args)
+          end
+
           it 'succeeds' do
-            Spree::Deprecation.silence do
-              put spree.api_checkout_path(order), params: params
-            end
+            put spree.api_checkout_path(order), params: params
 
             expect(response.status).to eq 200
             expect(order.credit_cards).to match_array [credit_card]
@@ -421,7 +419,6 @@ module Spree
           state: 'address',
           email: nil
         )
-
         put spree.next_api_checkout_path(order), params: { id: order.to_param, order_token: order.guest_token }
         expect(response.status).to eq(422)
         expect(json_response['error']).to match(/could not be transitioned/)
@@ -462,6 +459,19 @@ module Spree
             subject
             expect(response.status).to eq(400)
             expect(json_response['errors']['expected_total']).to include(I18n.t('spree.api.order.expected_total_mismatch'))
+          end
+        end
+
+        context 'when cannot complete' do
+          let(:order) { create(:order) }
+
+          before { order.update(state: 'cart') }
+
+          it 'returns a state machine error' do
+            subject
+
+            expect(json_response['error']).to eq(I18n.t(:could_not_transition, scope: "spree.api", resource: 'order'))
+            expect(response.status).to eq(422)
           end
         end
       end

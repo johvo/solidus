@@ -36,8 +36,7 @@ module Spree
       let(:ship_address) {
         {
          address1: '123 Testable Way',
-         firstname: 'Fox',
-         lastname: 'Mulder',
+         name: 'Fox Mulder',
          city: 'Washington',
          country_id: country.id,
          state_id: state.id,
@@ -141,6 +140,19 @@ module Spree
         line_item = order.line_items.first
         expect(line_item.variant_id).to eq(variant_id)
         expect(line_item.quantity).to eq(5)
+      end
+
+      it 'handle when line items is an array' do
+        params = {
+          line_items_attributes: [
+            { variant_id: variant_id, quantity: 7 }
+          ]
+        }
+        order = Importer::Order.import(user, params)
+
+        line_item = order.line_items.first
+        expect(line_item.variant_id).to eq(variant_id)
+        expect(line_item.quantity).to eq(7)
       end
 
       it 'can build an order from API shipping address' do
@@ -324,6 +336,15 @@ module Spree
           expect {
             Importer::Order.import(user, params)
           }.to raise_error ActiveRecord::RecordNotFound
+        end
+
+        it "accepts stock_location_id" do
+          params[:shipments_attributes][0][:stock_location] = nil
+          params[:shipments_attributes][0][:stock_location_id] = stock_location.id
+          order = Importer::Order.import(user, params)
+          shipment = order.shipments.first
+
+          expect(shipment.stock_location).to eq stock_location
         end
 
         context 'when completed_at and shipped_at present' do

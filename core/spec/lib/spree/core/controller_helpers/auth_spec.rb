@@ -2,13 +2,11 @@
 
 require 'rails_helper'
 
-class FakesController < ApplicationController
-  include Spree::Core::ControllerHelpers::Auth
-  def index; render plain: 'index'; end
-end
-
 RSpec.describe Spree::Core::ControllerHelpers::Auth, type: :controller do
-  controller(FakesController) {}
+  controller(ApplicationController) {
+    include Spree::Core::ControllerHelpers::Auth
+    def index; render plain: 'index'; end
+  }
 
   describe '#current_ability' do
     it 'returns Spree::Ability instance' do
@@ -17,9 +15,12 @@ RSpec.describe Spree::Core::ControllerHelpers::Auth, type: :controller do
   end
 
   describe '#redirect_back_or_default' do
-    controller(FakesController) do
-      def index; redirect_back_or_default('/'); end
+    before do
+      def controller.index
+        redirect_back_or_default('/')
+      end
     end
+
     it 'redirects to session url' do
       session[:spree_user_return_to] = '/redirect'
       get :index
@@ -32,16 +33,36 @@ RSpec.describe Spree::Core::ControllerHelpers::Auth, type: :controller do
   end
 
   describe '#set_guest_token' do
-    controller(FakesController) do
-      def index
+    before do
+      def controller.index
         set_guest_token
         render plain: 'index'
       end
     end
+
     it 'sends cookie header' do
       get :index
       expect(response.headers["Set-Cookie"]).to match(/guest_token.*HttpOnly/)
       expect(response.cookies['guest_token']).not_to be_nil
+    end
+
+    context 'with guest_token_cookie_options configured' do
+      it 'sends cookie with these options' do
+        stub_spree_preferences(guest_token_cookie_options: {
+          domain: :all,
+          path: '/api'
+        })
+        get :index
+        expect(response.headers["Set-Cookie"]).to match(/domain=\.test\.host; path=\/api/)
+      end
+
+      it 'never overwrites httponly' do
+        stub_spree_preferences(guest_token_cookie_options: {
+          httponly: false
+        })
+        get :index
+        expect(response.headers["Set-Cookie"]).to match(/guest_token.*HttpOnly/)
+      end
     end
   end
 
@@ -68,6 +89,28 @@ RSpec.describe Spree::Core::ControllerHelpers::Auth, type: :controller do
     end
     it 'returns nil' do
       expect(controller.try_spree_current_user).to eq nil
+    end
+  end
+
+  describe '#unauthorized_redirect' do
+    before do
+      def controller.index
+        authorize!(:show, :something)
+      end
+    end
+
+    context "http_referrer is present" do
+      before { request.env['HTTP_REFERER'] = '/redirect' }
+
+      it "redirects back" do
+        get :index
+        expect(response).to redirect_to('/redirect')
+      end
+    end
+
+    it "redirects to unauthorized" do
+      get :index
+      expect(response).to redirect_to('/unauthorized')
     end
   end
 end

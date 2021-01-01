@@ -29,9 +29,9 @@ module Spree
         # For payment methods already implemeting `try_void`
         if try_void_available?(payment.payment_method)
           if response = payment.payment_method.try_void(payment)
-            payment.send(:handle_void_response, response)
+            payment.handle_void_response(response)
           else
-            payment.refunds.create!(amount: payment.credit_allowed, reason: refund_reason)
+            payment.refunds.create!(amount: payment.credit_allowed, reason: refund_reason, perform_after_create: false).perform!
           end
         else
           # For payment methods not yet implemeting `try_void`
@@ -55,7 +55,7 @@ module Spree
           'Please implement a `try_void` method instead that returns a response object if void succeeds ' \
           'or `false|nil` if not. Solidus will refund the payment then.'
         response = payment.payment_method.cancel(payment.response_code)
-        payment.send(:handle_void_response, response)
+        payment.handle_void_response(response)
       end
     end
   end

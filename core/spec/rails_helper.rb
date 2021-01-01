@@ -19,6 +19,7 @@ Dir["./spec/support/**/*.rb"].sort.each { |f| require f }
 require 'spree/testing_support/factories'
 require 'spree/testing_support/preferences'
 require 'spree/testing_support/rake'
+require 'spree/testing_support/job_helpers'
 require 'cancan/matchers'
 
 ActiveJob::Base.queue_adapter = :test
@@ -34,13 +35,16 @@ RSpec.configure do |config|
   config.use_transactional_fixtures = true
 
   config.before :suite do
+    FileUtils.rm_rf(Rails.configuration.storage_path)
     DatabaseCleaner.clean_with :truncation
   end
 
   config.before :each do
+    ActiveStorage::Current.host = 'https://www.example.com'
     Rails.cache.clear
   end
 
-  config.include ActiveJob::TestHelper
+  config.include Spree::TestingSupport::JobHelpers
+
   config.include FactoryBot::Syntax::Methods
 end

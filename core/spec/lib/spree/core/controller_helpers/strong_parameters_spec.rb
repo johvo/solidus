@@ -2,12 +2,10 @@
 
 require 'rails_helper'
 
-class FakesController < ApplicationController
-  include Spree::Core::ControllerHelpers::StrongParameters
-end
-
 RSpec.describe Spree::Core::ControllerHelpers::StrongParameters, type: :controller do
-  controller(FakesController) {}
+  controller(ApplicationController) {
+    include Spree::Core::ControllerHelpers::StrongParameters
+  }
 
   describe '#permitted_attributes' do
     it 'returns Spree::PermittedAttributes module' do
@@ -23,14 +21,9 @@ RSpec.describe Spree::Core::ControllerHelpers::StrongParameters, type: :controll
 
   describe '#permitted_checkout_attributes' do
     it 'returns Array class' do
-      Spree::Deprecation.silence do
-        expect(controller.permitted_checkout_attributes.class).to eq Spree::CheckoutAdditionalAttributes
-      end
-    end
-
-    it 'is deprecated' do
-      expect(Spree::Deprecation).to receive(:warn)
-      controller.permitted_checkout_attributes
+      expect(Spree::Deprecation).to receive(:warn).
+        with(/^checkout_attributes is deprecated/, any_args)
+      expect(controller.permitted_checkout_attributes.class).to eq Spree::CheckoutAdditionalAttributes
     end
   end
 

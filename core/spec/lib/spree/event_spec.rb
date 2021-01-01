@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-require 'spree/event'
+require 'rails_helper'
 
 RSpec.describe Spree::Event do
   let(:subscription_name) { 'foo_bar' }
@@ -67,6 +66,13 @@ RSpec.describe Spree::Event do
           Spree::Event.fire subscription_name
           expect(item).to have_received :do_something
         end
+
+        it 'can subscribe to multiple events using a regexp' do
+          Spree::Event.subscribe(/.*\.spree$/) { item.do_something_else }
+          Spree::Event.fire subscription_name
+          Spree::Event.fire 'another_event'
+          expect(item).to have_received(:do_something_else).twice
+        end
       end
 
       describe '#unsubscribe' do
@@ -99,32 +105,6 @@ RSpec.describe Spree::Event do
           end
         end
       end
-    end
-  end
-
-  describe '.subscribers' do
-    let(:subscriber) { instance_double(Module, 'Subscriber') }
-    let(:subscriber_name) { instance_double(String, 'Subscriber name') }
-
-    before do
-      described_class.subscribers.clear
-      allow(subscriber).to receive(:name).and_return(subscriber_name)
-      allow(subscriber_name).to receive(:constantize).and_return(subscriber)
-      allow(subscriber_name).to receive(:to_s).and_return(subscriber_name)
-    end
-
-    it 'accepts the names of constants' do
-      Spree::Config.events.subscribers << subscriber_name
-
-      expect(described_class.subscribers.to_a).to eq([subscriber])
-    end
-
-    it 'discards duplicates' do
-      described_class.subscribers << subscriber_name
-      described_class.subscribers << subscriber_name
-      described_class.subscribers << subscriber_name
-
-      expect(described_class.subscribers.to_a).to eq([subscriber])
     end
   end
 end

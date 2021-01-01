@@ -55,7 +55,7 @@ module Spree
 
             let(:address_attributes) do
               {
-                'firstname' => address.firstname,
+                'name' => address.name,
                 'address1' => address.address1,
                 'city' => address.city,
                 'country_id' => address.country_id,
@@ -68,7 +68,7 @@ module Spree
             it 'associates the address' do
               expect(order.payments.count).to eq(1)
               credit_card = order.payments.last.source
-              expect(credit_card.address.attributes).to include(address_attributes)
+              expect(credit_card.address.as_json).to include(address_attributes)
             end
           end
         end
@@ -99,6 +99,18 @@ module Spree
               expect(response.status).to eq(200)
               expect(assigns[:payment_methods]).to be_empty
             end
+          end
+
+          it "loads the payment methods in order" do
+            check = create :check_payment_method, position: 2
+            credit_card = create :payment_method, position: 1
+
+            get :new, params: { order_id: order.number }
+
+            expect(assigns(:payment_methods)).to eq [
+              credit_card, check
+            ]
+            expect(assigns(:payment_method)).to eq credit_card
           end
         end
       end
@@ -140,11 +152,19 @@ module Spree
             expect(response).to redirect_to(spree.edit_admin_order_customer_path(order))
           end
         end
+
+        context "existent order id not given" do
+          it "redirects and flashes about the non-existent order" do
+            get :index, params: { order_id: 'non-existent-order' }
+            expect(response).to redirect_to(spree.admin_orders_path)
+            expect(flash[:error]).to eql("Order is not found")
+          end
+        end
       end
 
       describe '#fire' do
         describe 'authorization' do
-          let(:payment) { create(:payment, state: 'checkout') }
+          let(:payment) { create(:payment, state: 'checkout', amount: 10) }
           let(:order) { payment.order }
 
           context 'the user is authorized' do

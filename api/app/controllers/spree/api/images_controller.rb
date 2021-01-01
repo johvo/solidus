@@ -4,12 +4,12 @@ module Spree
   module Api
     class ImagesController < Spree::Api::BaseController
       def index
-        @images = scope.images.accessible_by(current_ability, :read)
+        @images = scope.images.accessible_by(current_ability)
         respond_with(@images)
       end
 
       def show
-        @image = Spree::Image.accessible_by(current_ability, :read).find(params[:id])
+        @image = scope.images.accessible_by(current_ability, :show).find(params[:id])
         respond_with(@image)
       end
 
@@ -20,13 +20,13 @@ module Spree
       end
 
       def update
-        @image = Spree::Image.accessible_by(current_ability, :update).find(params[:id])
+        @image = scope.gallery.images.accessible_by(current_ability, :update).find(params[:id])
         @image.update(image_params)
         respond_with(@image, default_template: :show)
       end
 
       def destroy
-        @image = Spree::Image.accessible_by(current_ability, :destroy).find(params[:id])
+        @image = scope.images.accessible_by(current_ability, :destroy).find(params[:id])
         @image.destroy
         respond_with(@image, status: 204)
       end

@@ -17,7 +17,7 @@ module Spree
 
     belongs_to :order, class_name: 'Spree::Order', touch: true, inverse_of: :payments, optional: true
     belongs_to :source, polymorphic: true, optional: true
-    belongs_to :payment_method, -> { with_deleted }, class_name: 'Spree::PaymentMethod', inverse_of: :payments, optional: true
+    belongs_to :payment_method, -> { with_discarded }, class_name: 'Spree::PaymentMethod', inverse_of: :payments, optional: true
 
     has_many :offsets, -> { offset_payment }, class_name: "Spree::Payment", foreign_key: :source_id
     has_many :log_entries, as: :source
@@ -179,11 +179,11 @@ module Spree
     end
 
     def source_required?
-      payment_method.present? && payment_method.source_required?
+      !!payment_method&.source_required?
     end
 
     def profiles_supported?
-      payment_method.respond_to?(:payment_profiles_supported?) && payment_method.payment_profiles_supported?
+      !!payment_method.try(:payment_profiles_supported?)
     end
 
     def create_payment_profile

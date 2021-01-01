@@ -22,6 +22,7 @@ module Spree
         :state_attributes,
         :adjustment_attributes,
         :inventory_unit_attributes,
+        :customer_return_attributes,
         :return_authorization_attributes,
         :creditcard_attributes,
         :payment_source_attributes,
@@ -117,15 +118,26 @@ module Spree
         :id, :state, :variant_id, :shipment_id
       ]
 
+      @@customer_return_attributes = [
+        :id, :number, :stock_location_id, :created_at, :updated_at
+      ]
+
       @@return_authorization_attributes = [
         :id, :number, :state, :order_id, :memo, :created_at, :updated_at
       ]
 
-      @@address_attributes = [
-        :id, :firstname, :lastname, :full_name, :address1, :address2, :city,
-        :zipcode, :phone, :company, :alternative_phone, :country_id, :country_iso,
-        :state_id, :state_name, :state_text
+      @@address_base_attributes = [
+        :id, :name, :address1, :address2, :city, :zipcode, :phone, :company,
+        :alternative_phone, :country_id, :country_iso, :state_id, :state_name,
+        :state_text
       ]
+
+      @@address_attributes = if Spree::Config.use_combined_first_and_last_name_in_address
+                               @@address_base_attributes
+                             else
+                               @@address_base_attributes +
+                                 Spree::Address::LEGACY_NAME_ATTRS.map(&:to_sym)
+                             end
 
       @@country_attributes = [:id, :iso_name, :iso, :iso3, :name, :numcode]
 
@@ -168,7 +180,8 @@ module Spree
 
       @@store_attributes = [
         :id, :name, :url, :meta_description, :meta_keywords, :seo_title,
-        :mail_from_address, :default_currency, :code, :default, :available_locales
+        :mail_from_address, :default_currency, :code, :default, :available_locales,
+        :bcc_email
       ]
 
       @@store_credit_history_attributes = [

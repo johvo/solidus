@@ -29,6 +29,9 @@
 //= require spree/backend/components/tabs
 //= require spree/backend/components/tooltips
 //= require spree/backend/components/editable_table
+//= require spree/backend/components/selectable_table
+//= require spree/backend/components/selectable_table/summary
+//= require spree/backend/components/selectable_table/return_items
 //= require spree/backend/components/sortable_table
 //= require spree/backend/components/admin_nav
 //= require spree/backend/datepicker
@@ -48,7 +51,6 @@
 //= require spree/backend/progress
 //= require spree/backend/promotions
 //= require spree/backend/promotions/activation
-//= require spree/backend/returns/return_item_selection
 //= require spree/backend/routes
 //= require spree/backend/shipments
 //= require spree/backend/spree-select2
@@ -61,3 +63,4 @@
 //= require spree/backend/user_picker
 //= require spree/backend/variant_autocomplete
 //= require spree/backend/zone
+//= require spree/backend/shipping_methods/stock_locations_picker

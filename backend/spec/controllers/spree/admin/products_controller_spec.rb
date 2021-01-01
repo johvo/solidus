@@ -21,7 +21,7 @@ describe Spree::Admin::ProductsController, type: :controller do
       let!(:soft_deleted_product) { create(:product, sku: "ABC123") }
       before { soft_deleted_product.discard }
 
-      context 'when params[:q][:with_deleted] is not set' do
+      context 'when params[:q][:with_discarded] is not set' do
         let(:params) { { q: {} } }
 
         it 'filters out soft-deleted products by default' do
@@ -30,8 +30,8 @@ describe Spree::Admin::ProductsController, type: :controller do
         end
       end
 
-      context 'when params[:q][:with_deleted] is set to "true"' do
-        let(:params) { { q: { with_deleted: 'true' } } }
+      context 'when params[:q][:with_discarded] is set to "true"' do
+        let(:params) { { q: { with_discarded: 'true' } } }
 
         it 'includes soft-deleted products' do
           get :index, params: params
@@ -134,6 +134,7 @@ describe Spree::Admin::ProductsController, type: :controller do
           id: product.id,
           variant_property_rules_attributes: {
             "0" => {
+              apply_to_all: true,
               option_value_ids: option_value.id,
               values_attributes: {
                 "0" => {
@@ -155,6 +156,11 @@ describe Spree::Admin::ProductsController, type: :controller do
 
     it "creates a variant property rule" do
       expect { subject }.to change { product.variant_property_rules.count }.by(1)
+    end
+
+    it "creates a variant property rule that applies to all" do
+      subject
+      expect(product.variant_property_rules.first.apply_to_all).to be_truthy
     end
 
     it "creates a variant property rule condition" do

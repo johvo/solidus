@@ -15,12 +15,8 @@ module DummyApp
 
     def needs_migration?
       return true if !database_exists?
-      if ActiveRecord::Base.connection.respond_to?(:migration_context)
-        # Rails >= 5.2
-        ActiveRecord::Base.connection.migration_context.needs_migration?
-      else
-        ActiveRecord::Migrator.needs_migration?
-      end
+
+      ActiveRecord::Base.connection.migration_context.needs_migration?
     end
 
     def auto_migrate
@@ -31,6 +27,9 @@ module DummyApp
         ActiveRecord::Base.remove_connection
 
         sh 'rake db:reset VERBOSE=false'
+        if ENV['ENABLE_ACTIVE_STORAGE']
+          sh 'rake active_storage:install db:migrate VERBOSE=false'
+        end
 
         # We have a brand new database, so we must re-establish our connection
         ActiveRecord::Base.establish_connection

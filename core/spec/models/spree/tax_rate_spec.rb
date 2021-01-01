@@ -135,6 +135,58 @@ RSpec.describe Spree::TaxRate, type: :model do
     end
   end
 
+  context ".active" do
+    subject(:active_tax_rates) { Spree::TaxRate.active }
+
+    context "when the tax rate has no start or expiry date" do
+      let!(:rate) { create(:tax_rate) }
+
+      it { is_expected.to eq([rate]) }
+    end
+
+    context "when the start date is in the past" do
+      let!(:rate) { create(:tax_rate, starts_at: 1.day.ago ) }
+
+      it { is_expected.to eq([rate]) }
+    end
+
+    context "when the start date is in the future" do
+      let!(:rate) { create(:tax_rate, starts_at: 1.day.from_now ) }
+
+      it { is_expected.to be_empty }
+    end
+
+    context "when the expiry date is in the future" do
+      let!(:rate) { create(:tax_rate, expires_at: 1.day.from_now ) }
+
+      it { is_expected.to eq([rate]) }
+    end
+
+    context "when the expiry date is in the past" do
+      let!(:rate) { create(:tax_rate, expires_at: 1.day.ago ) }
+
+      it { is_expected.to be_empty }
+    end
+
+    context "when the start date in the past and expiry date is in the future" do
+      let!(:rate) { create(:tax_rate, starts_at: 1.day.ago, expires_at: 1.day.from_now ) }
+
+      it { is_expected.to eq([rate]) }
+    end
+
+    context "when the start date and expiry date are in the past" do
+      let!(:rate) { create(:tax_rate, starts_at: 1.day.ago, expires_at: 1.day.ago ) }
+
+      it { is_expected.to be_empty }
+    end
+
+    context "when the start date and expiry date are in the future" do
+      let!(:rate) { create(:tax_rate, starts_at: 1.day.from_now, expires_at: 1.day.from_now ) }
+
+      it { is_expected.to be_empty }
+    end
+  end
+
   describe "#adjust" do
     let(:taxable_address) { create(:address) }
     let(:order) { create(:order_with_line_items, ship_address: order_address) }
@@ -151,9 +203,13 @@ RSpec.describe Spree::TaxRate, type: :model do
 
     let(:item) { order.line_items.first }
 
+    before do
+      expect(Spree::Deprecation).to receive(:warn).
+        with(/^`Spree::TaxRate#adjust` is deprecated/, any_args)
+    end
+
     describe 'adjustments' do
       before do
-        expect(Spree::Deprecation).to receive(:warn)
         tax_rate.adjust(nil, item)
       end
 
@@ -297,8 +353,13 @@ RSpec.describe Spree::TaxRate, type: :model do
     let(:tax_rate) { create(:tax_rate, tax_categories: [tax_category]) }
     let(:tax_category) { create(:tax_category) }
 
+    before do
+      expect(Spree::Deprecation).to receive(:warn).
+        with(/^tax_category is deprecated and will be removed/, any_args)
+    end
+
     it "returns the first tax category" do
-      tax_category = Spree::Deprecation.silence { tax_rate.tax_category }
+      tax_category = tax_rate.tax_category
       expect(tax_category).to eq(tax_category)
     end
   end
@@ -307,10 +368,13 @@ RSpec.describe Spree::TaxRate, type: :model do
     let(:tax_rate) { Spree::TaxRate.new }
     let(:tax_category) { create(:tax_category) }
 
+    before do
+      expect(Spree::Deprecation).to receive(:warn).
+        with(/^tax_category= is deprecated and will be removed/, any_args)
+    end
+
     it "can assign the tax categories" do
-      Spree::Deprecation.silence {
-        tax_rate.tax_category = tax_category
-      }
+      tax_rate.tax_category = tax_category
       expect(tax_rate.tax_categories).to eq([tax_category])
     end
   end

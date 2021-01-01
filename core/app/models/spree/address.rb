@@ -8,27 +8,50 @@ module Spree
   class Address < Spree::Base
     extend ActiveModel::ForbiddenAttributesProtection
 
+    mattr_accessor :state_validator_class
+    self.state_validator_class = Spree::Address::StateValidator
+
     belongs_to :country, class_name: "Spree::Country", optional: true
     belongs_to :state, class_name: "Spree::State", optional: true
 
-    validates :firstname, :address1, :city, :country_id, presence: true
+    validates :address1, :city, :country_id, presence: true
     validates :zipcode, presence: true, if: :require_zipcode?
     validates :phone, presence: true, if: :require_phone?
 
-    validate :state_validate
-    validate :validate_state_matches_country
+    validate :validate_name
+
+    validate do
+      if Spree::Config.use_legacy_address_state_validator
+        begin
+          @silence_state_deprecations = true
+          state_validate
+          validate_state_matches_country
+        ensure
+          @silence_state_deprecations = false
+        end
+      else
+        self.class.state_validator_class.new(self).perform
+      end
+    end
 
     alias_attribute :first_name, :firstname
     alias_attribute :last_name, :lastname
+    alias_attribute :full_name, :name
 
     DB_ONLY_ATTRS = %w(id updated_at created_at)
     TAXATION_ATTRS = %w(state_id country_id zipcode)
+    LEGACY_NAME_ATTRS = %w(firstname lastname full_name)
 
     self.whitelisted_ransackable_attributes = %w[firstname lastname]
 
     scope :with_values, ->(attributes) do
       where(value_attributes(attributes))
     end
+
+    Spree::Deprecation.deprecate_methods(
+      Spree::Address,
+      LEGACY_NAME_ATTRS.product([:name]).to_h
+    )
 
     # @return [Address] an address with default attributes
     def self.build_default(*args, &block)
@@ -62,10 +85,13 @@ module Spree
     def self.value_attributes(base_attributes, merge_attributes = {})
       base = base_attributes.stringify_keys.merge(merge_attributes.stringify_keys)
 
-      # TODO: Deprecate these aliased attributes
-      base['firstname'] = base['first_name'] if base.key?('first_name')
-      base['lastname'] = base['last_name'] if base.key?('last_name')
-
+      name_from_attributes = Spree::Address::Name.from_attributes(base)
+      if base['firstname'].presence || base['first_name'].presence
+        base['firstname'] = name_from_attributes.first_name
+      end
+      if base['lastname'].presence || base['last_name'].presence
+        base['lastname'] = name_from_attributes.last_name
+      end
       excluded_attributes = DB_ONLY_ATTRS + %w(first_name last_name)
 
       base.except(*excluded_attributes)
@@ -80,18 +106,13 @@ module Spree
       self.class.value_attributes(attributes.slice(*TAXATION_ATTRS))
     end
 
-    # @return [String] the full name on this address
-    def full_name
-      "#{firstname} #{lastname}".strip
-    end
-
     # @return [String] a string representation of this state
     def state_text
       state.try(:abbr) || state.try(:name) || state_name
     end
 
     def to_s
-      "#{full_name}: #{address1}"
+      "#{name}: #{address1}"
     end
 
     # @note This compares the addresses based on only the fields that make up
@@ -130,7 +151,7 @@ module Spree
     # @return [Hash] an ActiveMerchant compatible address hash
     def active_merchant_hash
       {
-        name: full_name,
+        name: name,
         address1: address1,
         address2: address2,
         city: city,
@@ -143,13 +164,13 @@ module Spree
 
     # @todo Remove this from the public API if possible.
     # @return [true] whether or not the address requires a phone number to be
-    #   valid
+    #   present
     def require_phone?
-      true
+      Spree::Config[:address_requires_phone]
     end
 
     # @todo Remove this from the public API if possible.
-    # @return [true] whether or not the address requires a zipcode to be valid
+    # @return [true] whether or not the address requires a zipcode to be present
     def require_zipcode?
       true
     end
@@ -172,9 +193,54 @@ module Spree
       country && country.iso
     end
 
+    # @return [String] the full name on this address
+    def name
+      Spree::Address::Name.new(
+        read_attribute(:firstname),
+        read_attribute(:lastname)
+      ).value
+    end
+
+    def name=(value)
+      return if value.nil?
+
+      name_from_value = Spree::Address::Name.new(value)
+      write_attribute(:firstname, name_from_value.first_name)
+      write_attribute(:lastname, name_from_value.last_name)
+    end
+
+    def as_json(options = {})
+      if Spree::Config.use_combined_first_and_last_name_in_address
+        super(options.merge(except: LEGACY_NAME_ATTRS)).tap do |hash|
+          hash['name'] = name
+        end
+      else
+        super
+      end
+    end
+
     private
 
+    def validate_name
+      return if name.present?
+
+      name_attribute = if Spree::Config.use_combined_first_and_last_name_in_address
+        :name
+      else
+        :firstname
+      end
+      errors.add(name_attribute, :blank)
+    end
+
     def state_validate
+      unless @silence_state_deprecations
+        Spree::Deprecation.warn \
+          "#{self.class}#state_validate private method has been deprecated" \
+          " and will be removed in Solidus v3." \
+          " Check https://github.com/solidusio/solidus/pull/3129 for more details.",
+          caller
+      end
+
       # Skip state validation without country (also required)
       # or when disabled by preference
       return if country.blank? || !Spree::Config[:address_requires_state]
@@ -210,6 +276,17 @@ module Spree
     end
 
     def validate_state_matches_country
+      unless @silence_state_deprecations
+        Spree::Deprecation.warn \
+          "#{self.class}#validate_state_matches_country private method has been deprecated" \
+          " and will be removed in Solidus v3." \
+          " Check https://github.com/solidusio/solidus/pull/3129 for more details.",
+          caller
+      end
+
+      return unless country
+
+      self.state = nil if country.states.empty?
       if state && state.country != country
         errors.add(:state, :does_not_match_country)
       end

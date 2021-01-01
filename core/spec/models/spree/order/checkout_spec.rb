@@ -5,7 +5,7 @@ require 'spree/testing_support/order_walkthrough'
 
 RSpec.describe Spree::Order, type: :model do
   let!(:store) { create(:store) }
-  let(:order) { Spree::Order.new(store: store) }
+  let(:order) { create(:order, store: store) }
 
   def assert_state_changed(order, from, to)
     state_change_exists = order.state_changes.where(previous_state: from, next_state: to).exists?
@@ -139,8 +139,9 @@ RSpec.describe Spree::Order, type: :model do
           it_behaves_like "it references the user's the default address" do
             let(:address_kind) { :ship }
             before do
+              order.ship_address = nil
               order.user = FactoryBot.create(:user)
-              order.user.default_address = default_address
+              order.user.ship_address = default_address
               order.next!
               order.reload
             end
@@ -149,8 +150,9 @@ RSpec.describe Spree::Order, type: :model do
           it_behaves_like "it references the user's the default address" do
             let(:address_kind) { :bill }
             before do
+              order.bill_address = nil
               order.user = FactoryBot.create(:user)
-              order.user.default_address = default_address
+              order.user.bill_address = default_address
               order.next!
               order.reload
             end
@@ -204,6 +206,7 @@ RSpec.describe Spree::Order, type: :model do
       end
 
       it "does not call persist_order_address if there is no address on the order" do
+        order.bill_address = nil
         order.user = FactoryBot.create(:user)
         order.save!
 
@@ -278,10 +281,8 @@ RSpec.describe Spree::Order, type: :model do
     end
 
     context "from delivery", partial_double_verification: false do
-      let(:ship_address) { FactoryBot.create(:ship_address) }
 
       before do
-        order.ship_address = ship_address
         order.state = 'delivery'
         allow(order).to receive(:apply_shipping_promotions)
         allow(order).to receive(:ensure_available_shipping_rates) { true }
@@ -301,6 +302,16 @@ RSpec.describe Spree::Order, type: :model do
           order.next!
           assert_state_changed(order, 'delivery', 'payment')
           expect(order.state).to eq('payment')
+        end
+
+        it 'fails if billing address is required and missing' do
+          payment_method = create(:payment_method)
+          allow(payment_method).to receive(:billing_address_required?).and_return(true)
+          allow(order).to receive(:available_payment_methods).and_return([payment_method])
+          order.bill_address = nil
+          allow(Spree::Config).to receive(:billing_address_required).and_return(true)
+
+          expect { order.next! }.to raise_error(StateMachines::InvalidTransition, /#{I18n.t('spree.bill_address_required')}/)
         end
       end
 
@@ -520,7 +531,8 @@ RSpec.describe Spree::Order, type: :model do
       context 'when the line items are not available' do
         before do
           order.line_items << FactoryBot.create(:line_item)
-          order.store = FactoryBot.build(:store)
+          order.store = FactoryBot.create(:store)
+
           Spree::OrderUpdater.new(order).update
 
           order.save!
@@ -621,7 +633,7 @@ RSpec.describe Spree::Order, type: :model do
     it "should not keep old events when checkout_flow is redefined" do
       state_machine = Spree::Order.state_machine
       expect(state_machine.states.any? { |s| s.name == :address }).to be false
-      known_states = state_machine.events[:next].branches.map(&:known_states).flatten
+      known_states = state_machine.events[:next].branches.flat_map(&:known_states)
       expect(known_states).not_to include(:address)
       expect(known_states).not_to include(:delivery)
       expect(known_states).not_to include(:confirm)

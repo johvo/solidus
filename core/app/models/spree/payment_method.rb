@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'discard'
 require 'spree/preferences/statically_configurable'
 
 module Spree
@@ -15,17 +14,17 @@ module Spree
     preference :server, :string, default: 'test'
     preference :test_mode, :boolean, default: true
 
-    acts_as_paranoid
-    include Spree::ParanoiaDeprecations
-
-    include Discard::Model
-    self.discard_column = :deleted_at
+    include Spree::SoftDeletable
 
     acts_as_list
 
     # @private
     def self.const_missing(name)
       if name == :DISPLAY
+        Spree::Deprecation.warn(
+          "#{self}::DISPLAY has been deprecated and will be removed in Solidus v3.",
+          caller
+        )
         const_set(:DISPLAY, [:both, :front_end, :back_end])
       else
         super
@@ -63,7 +62,7 @@ module Spree
           @human
         ].compact
         options = { scope: [:activerecord, :models], count: 1, default: defaults }.merge!(options.except(:default))
-        I18n.translate(defaults.shift, options)
+        I18n.translate(defaults.shift, **options)
       end
     end
 
@@ -108,9 +107,9 @@ module Spree
         where(type: to_s, active: true).count > 0
       end
 
-      # @deprecated Use .with_deleted.find instead
+      # @deprecated Use .with_discarded.find instead
       def find_with_destroyed(*args)
-        Spree::Deprecation.warn "#{self}.find_with_destroyed is deprecated. Use #{self}.with_deleted.find instead"
+        Spree::Deprecation.warn "#{self}.find_with_destroyed is deprecated. Use #{self}.with_discarded.find instead"
         unscoped { find(*args) }
       end
     end

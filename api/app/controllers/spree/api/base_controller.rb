@@ -10,6 +10,7 @@ module Spree
       protect_from_forgery unless: -> { request.format.json? }
 
       include CanCan::ControllerAdditions
+      include Spree::Core::ControllerHelpers::CurrentHost
       include Spree::Core::ControllerHelpers::Store
       include Spree::Core::ControllerHelpers::Pricing
       include Spree::Core::ControllerHelpers::StrongParameters
@@ -28,6 +29,7 @@ module Spree
       rescue_from ActiveRecord::RecordNotFound, with: :not_found
       rescue_from CanCan::AccessDenied, with: :unauthorized
       rescue_from Spree::Core::GatewayError, with: :gateway_error
+      rescue_from StateMachines::InvalidTransition, with: :invalid_transition
 
       helper Spree::Api::ApiHelpers
 
@@ -133,13 +135,13 @@ module Spree
 
       def product_scope
         if can?(:admin, Spree::Product)
-          scope = Spree::Product.with_deleted.accessible_by(current_ability, :read).includes(*product_includes)
+          scope = Spree::Product.with_discarded.accessible_by(current_ability).includes(*product_includes)
 
           unless params[:show_deleted]
             scope = scope.not_deleted
           end
         else
-          scope = Spree::Product.accessible_by(current_ability, :read).available.includes(*product_includes)
+          scope = Spree::Product.accessible_by(current_ability).available.includes(*product_includes)
         end
 
         scope
@@ -159,7 +161,7 @@ module Spree
 
       def authorize_for_order
         @order = Spree::Order.find_by(number: order_id)
-        authorize! :read, @order, order_token
+        authorize! :show, @order, order_token
       end
 
       def lock_order
@@ -187,6 +189,12 @@ module Spree
 
       def default_per_page
         Kaminari.config.default_per_page
+      end
+
+      def invalid_transition(error)
+        logger.error("invalid_transition #{error.event} from #{error.from} for #{error.object.class.name}. Error: #{error.inspect}")
+
+        render "spree/api/errors/could_not_transition", locals: { resource: error.object }, status: :unprocessable_entity
       end
     end
   end

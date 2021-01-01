@@ -6,6 +6,11 @@ RSpec.describe Spree::Address, type: :model do
   subject { Spree::Address }
 
   context "aliased attributes" do
+    before do
+      allow(Spree::Deprecation).to receive(:warn).and_call_original
+      allow(Spree::Deprecation).to receive(:warn).with(/firstname|lastname/, any_args)
+    end
+
     let(:address) { Spree::Address.new firstname: 'Ryan', lastname: 'Bigg' }
 
     it " first_name" do
@@ -19,91 +24,57 @@ RSpec.describe Spree::Address, type: :model do
 
   context "validation" do
     let(:country) { create :country, states_required: true }
-    let(:state) { Spree::State.new name: 'maryland', abbr: 'md', country: country }
+    let(:state) { create :state, name: 'maryland', abbr: 'md', country: country }
     let(:address) { build(:address, country: country) }
 
-    before do
-      allow(country.states).to receive_messages with_name_or_abbr: [state]
-    end
+    context 'state validation' do
+      let(:state_validator) { instance_spy(Spree::Address.state_validator_class) }
 
-    context 'address does not require state' do
       before do
-        stub_spree_preferences(address_requires_state: false)
+        stub_spree_preferences(use_legacy_address_state_validator: false)
       end
 
-      it "address_requires_state preference is false" do
+      it "calls the state validator" do
+        allow(Spree::Address.state_validator_class).
+          to receive(:new).with(address).
+          and_return(state_validator)
+        expect(state_validator).to receive(:perform)
+        address.valid?
+      end
+
+      # basic integration test with the validator
+      # See address/state_validator_spec for a full address state validation
+      # test suite
+      it "performs the state validation" do
+        address.country.states_required = true
         address.state = nil
         address.state_name = nil
-        expect(address).to be_valid
-      end
-    end
-
-    context 'address requires state' do
-      before do
-        stub_spree_preferences(address_requires_state: true)
+        expect(address.valid?).to eq(false)
+        expect(address.errors['state']).to eq(["can't be blank"])
       end
 
-      it "state_name is not nil and country does not have any states" do
-        address.state = nil
-        address.state_name = 'alabama'
-        expect(address).to be_valid
-      end
-
-      it "errors when state_name is nil" do
-        address.state_name = nil
-        address.state = nil
-        expect(address).not_to be_valid
-      end
-
-      it "full state name is in state_name and country does contain that state" do
-        address.state_name = 'alabama'
-        # called by state_validate to set up state_id.
-        # Perhaps this should be a before_validation instead?
-        expect(address).to be_valid
-        expect(address.state).not_to be_nil
-        expect(address.state_name).to be_nil
-      end
-
-      it "state abbr is in state_name and country does contain that state" do
-        address.state_name = state.abbr
-        expect(address).to be_valid
-        expect(address.state_id).not_to be_nil
-        expect(address.state_name).to be_nil
-      end
-
-      context 'when the country does not match the state' do
-        context 'when the country requires states' do
-          it 'is invalid' do
-            address.state = state
-            address.country = Spree::Country.new(states_required: true)
-            address.valid?
-            expect(address.errors["state"]).to eq(['is invalid', 'does not match the country'])
-          end
+      context 'legacy state validator' do
+        before do
+          stub_spree_preferences(use_legacy_address_state_validator: true)
         end
 
-        context 'when the country does not require states' do
-          it 'is invalid' do
-            address.state = state
-            address.country = Spree::Country.new(states_required: false)
-            address.valid?
-            expect(address.errors["state"]).to eq(['does not match the country'])
-          end
+        it 'doesnt show deprecation warnings when calling #valid?' do
+          expect(Spree::Deprecation).to_not receive(:warn).
+            with(/^Spree::Address#state_validate private method has been deprecated/, any_args)
+          expect(Spree::Deprecation).to_not receive(:warn).
+            with(/^Spree::Address#validate_state_matches_country private method has been deprecated/, any_args)
+          address.valid?
         end
-      end
 
-      it "both state and state_name are entered but country does not contain the state" do
-        address.state = state
-        address.state_name = 'maryland'
-        address.country = create :country, states_required: true
-        expect(address).to be_valid
-        expect(address.state_id).to be_nil
-      end
+        it 'shows the deprecation warnings when calling validation methods directly' do
+          expect(Spree::Deprecation).to receive(:warn).
+            with(/^Spree::Address#state_validate private method has been deprecated/, any_args)
+          address.send(:state_validate)
 
-      it "both state and state_name are entered and country does contain the state" do
-        address.state = state
-        address.state_name = 'maryland'
-        expect(address).to be_valid
-        expect(address.state_name).to be_nil
+          expect(Spree::Deprecation).to receive(:warn).
+            with(/^Spree::Address#validate_state_matches_country private method has been deprecated/, any_args)
+          address.send(:validate_state_matches_country)
+        end
       end
     end
 
@@ -120,9 +91,9 @@ RSpec.describe Spree::Address, type: :model do
     end
 
     context "phone not required" do
-      before { allow(address).to receive_messages require_phone?: false }
+      before { stub_spree_preferences(address_requires_phone: false) }
 
-      it "shows no errors when phone is blank" do
+      it "is valid when phone is blank" do
         address.phone = ""
         address.valid?
         expect(address.errors[:phone].size).to eq 0
@@ -154,19 +125,19 @@ RSpec.describe Spree::Address, type: :model do
         end
 
         it 'accepts other attributes' do
-          address = Spree::Address.build_default(first_name: 'Ryan')
+          address = Spree::Address.build_default(name: 'Ryan')
 
           expect(address.country).to eq default_country
-          expect(address.first_name).to eq 'Ryan'
+          expect(address.name).to eq 'Ryan'
         end
 
         it 'accepts a block' do
           address = Spree::Address.build_default do |record|
-            record.first_name = 'Ryan'
+            record.name = 'Ryan'
           end
 
           expect(address.country).to eq default_country
-          expect(address.first_name).to eq 'Ryan'
+          expect(address.name).to eq 'Ryan'
         end
 
         it 'can override the country' do
@@ -208,7 +179,7 @@ RSpec.describe Spree::Address, type: :model do
       end
     end
 
-    let(:new_address_attributes) { attributes_for(:address) }
+    let(:new_address_attributes) { build(:address).attributes }
     subject { Spree::Address.immutable_merge(existing_address, new_address_attributes) }
 
     context "no existing address supplied" do
@@ -222,7 +193,7 @@ RSpec.describe Spree::Address, type: :model do
 
       context 'and there is a matching address in the database' do
         let(:new_address_attributes) { Spree::Address.value_attributes(matching_address.attributes) }
-        let!(:matching_address) { create(:address, firstname: 'Jordan') }
+        let!(:matching_address) { create(:address, name: 'Jordan') }
 
         it "returns the matching address" do
           expect(subject.attributes).to be_address_equivalent_attributes(new_address_attributes)
@@ -251,7 +222,7 @@ RSpec.describe Spree::Address, type: :model do
 
       context 'and changed address matches an existing address' do
         let(:new_address_attributes) { Spree::Address.value_attributes(matching_address.attributes) }
-        let!(:matching_address) { create(:address, firstname: 'Jordan') }
+        let!(:matching_address) { create(:address, name: 'Jordan') }
 
         it 'returns the matching address' do
           expect(subject.attributes).to be_address_equivalent_attributes(new_address_attributes)
@@ -314,10 +285,10 @@ RSpec.describe Spree::Address, type: :model do
 
   describe '.taxation_attributes' do
     context 'both taxation and non-taxation attributes are present ' do
-      let(:address) { Spree::Address.new firstname: 'Michael', lastname: 'Jackson', state_id: 1, country_id: 2, zipcode: '12345' }
+      let(:address) { Spree::Address.new name: 'Michael Jackson', state_id: 1, country_id: 2, zipcode: '12345' }
 
       it 'removes the non-taxation attributes' do
-        expect(address.taxation_attributes).not_to eq('firstname' => 'Michael', 'lastname' => 'Jackson')
+        expect(address.taxation_attributes).not_to eq('name' => 'Michael Jackson')
       end
 
       it 'returns only the taxation attributes' do
@@ -326,7 +297,7 @@ RSpec.describe Spree::Address, type: :model do
     end
 
     context 'taxation attributes are blank' do
-      let(:address) { Spree::Address.new firstname: 'Michael', lastname: 'Jackson' }
+      let(:address) { Spree::Address.new name: 'Michael Jackson' }
 
       it 'returns a subset of the attributes with the correct keys and nil values' do
         expect(address.taxation_attributes).to eq('state_id' => nil, 'country_id' => nil, 'zipcode' => nil)
@@ -350,25 +321,35 @@ RSpec.describe Spree::Address, type: :model do
     end
   end
 
-  context '#full_name' do
-    context 'both first and last names are present' do
-      let(:address) { Spree::Address.new firstname: 'Michael', lastname: 'Jackson' }
-      specify { expect(address.full_name).to eq('Michael Jackson') }
+  context '#name' do
+    it 'concatenates firstname and lastname' do
+      address = Spree::Address.new(firstname: 'Michael J.', lastname: 'Jackson')
+
+      expect(address.name).to eq('Michael J. Jackson')
     end
 
-    context 'first name is blank' do
-      let(:address) { Spree::Address.new firstname: nil, lastname: 'Jackson' }
-      specify { expect(address.full_name).to eq('Jackson') }
+    it 'returns lastname when firstname is blank' do
+      address = Spree::Address.new(firstname: nil, lastname: 'Jackson')
+
+      expect(address.name).to eq('Jackson')
     end
 
-    context 'last name is blank' do
-      let(:address) { Spree::Address.new firstname: 'Michael', lastname: nil }
-      specify { expect(address.full_name).to eq('Michael') }
+    it 'returns firstanme when lastname is blank' do
+      address = Spree::Address.new(firstname: 'Michael J.', lastname: nil)
+
+      expect(address.name).to eq('Michael J.')
     end
 
-    context 'both first and last names are blank' do
-      let(:address) { Spree::Address.new firstname: nil, lastname: nil }
-      specify { expect(address.full_name).to eq('') }
+    it 'returns empty string when firstname and lastname are blank' do
+      address = Spree::Address.new(firstname: nil, lastname: nil)
+
+      expect(address.name).to eq('')
+    end
+
+    it 'is included in json representation' do
+      address = Spree::Address.new(name: 'Jane Von Doe')
+
+      expect(address.as_json).to include('name' => 'Jane Von Doe')
     end
   end
 
@@ -395,5 +376,31 @@ RSpec.describe Spree::Address, type: :model do
     subject { described_class.new }
 
     it { is_expected.to be_require_phone }
+  end
+
+  context 'deprecations' do
+    let(:address) { described_class.new }
+
+    specify 'json representation does not contain deprecated fields' do
+      expect(address.as_json).not_to include('firstname', 'lastname')
+    end
+
+    specify 'firstname is deprecated' do
+      expect(Spree::Deprecation).to receive(:warn).with(/firstname/, any_args)
+
+      address.firstname
+    end
+
+    specify 'lastname is deprecated' do
+      expect(Spree::Deprecation).to receive(:warn).with(/lastname/, any_args)
+
+      address.lastname
+    end
+
+    specify 'full_name is deprecated' do
+      expect(Spree::Deprecation).to receive(:warn).with(/full_name/, any_args)
+
+      address.full_name
+    end
   end
 end

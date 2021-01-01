@@ -80,7 +80,7 @@ module Spree
 
       def load_data
         @amount = params[:amount] || load_order.total
-        @payment_methods = Spree::PaymentMethod.active.available_to_admin
+        @payment_methods = Spree::PaymentMethod.active.available_to_admin.ordered_by_position
         if @payment && @payment.payment_method
           @payment_method = @payment.payment_method
         else
@@ -92,6 +92,8 @@ module Spree
         @order = Spree::Order.find_by!(number: params[:order_id])
         authorize! action, @order
         @order
+      rescue ActiveRecord::RecordNotFound
+        resource_not_found(flash_class: Spree::Order, redirect_url: admin_orders_path)
       end
 
       def load_payment

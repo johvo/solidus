@@ -58,7 +58,8 @@ module Spree
 
       describe "#allocate_inventory" do
         it 'is deprecated' do
-          expect(Spree::Deprecation).to receive(:warn)
+          expect(Spree::Deprecation).to receive(:warn).
+            with(/^allocate_inventory is deprecated and will be removed/, any_args)
           subject.send :allocate_inventory, subject.instance_variable_get(:@availability).on_hand_by_stock_location_id
         end
       end
@@ -119,7 +120,7 @@ module Spree
         shared_examples "a fulfillable package" do
           it "packages correctly" do
             expect(shipments).not_to be_empty
-            inventory_units = shipments.flat_map { |shipment| shipment.inventory_units }
+            inventory_units = shipments.flat_map(&:inventory_units)
             expect(inventory_units.size).to eq(5)
             expect(inventory_units.uniq.size).to eq(5)
           end
@@ -128,6 +129,14 @@ module Spree
         shared_examples "an unfulfillable package" do
           it "raises exception" do
             expect{ shipments }.to raise_error(Spree::Order::InsufficientStock)
+          end
+
+          it 'raises exception and includes unfulfillable items' do
+            begin
+              expect(shipments).not_to be_empty
+            rescue Spree::Order::InsufficientStock => e
+              expect(e.items.keys.map(&:id)).to contain_exactly(variant.id)
+            end
           end
         end
 

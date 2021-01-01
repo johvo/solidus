@@ -22,7 +22,7 @@ module Spree
         expect do
           post spree.api_product_images_path(product.id), params: {
             image: {
-              attachment: upload_image('thinking-cat.jpg'),
+              attachment: upload_image('blank.jpg'),
               viewable_type: 'Spree::Variant',
               viewable_id: product.master.to_param
             },
@@ -32,8 +32,8 @@ module Spree
         end.to change(Image, :count).by(1)
       end
 
-      context "working with an existing image" do
-        let!(:product_image) { product.master.images.create!(attachment: image('thinking-cat.jpg')) }
+      context "working with an existing product image" do
+        let!(:product_image) { product.master.images.create!(attachment: image('blank.jpg')) }
 
         it "can get a single product image" do
           get spree.api_product_image_path(product.id, product_image)
@@ -63,22 +63,46 @@ module Spree
 
         it "can update image data" do
           expect(product_image.position).to eq(1)
-          put spree.api_variant_image_path(product.id, product_image), params: { image: { position: 2 } }
+          put spree.api_variant_image_path(product.master.id, product_image), params: { image: { position: 2 } }
           expect(response.status).to eq(200)
           expect(json_response).to have_attributes(attributes)
           expect(product_image.reload.position).to eq(2)
         end
 
         it "can delete an image" do
-          delete spree.api_variant_image_path(product.id, product_image)
+          delete spree.api_variant_image_path(product.master.id, product_image)
           expect(response.status).to eq(204)
           expect { product_image.reload }.to raise_error(ActiveRecord::RecordNotFound)
+        end
+      end
+
+      context 'when image belongs to another product' do
+        let!(:product_image) { another_product.master.images.create!(attachment: image("blank.jpg")) }
+        let(:another_product) { create(:product) }
+
+        it "cannot get an image of another product" do
+          get spree.api_product_image_path(product.id, product_image)
+          expect(response.status).to eq(404)
+          expect(json_response['error']).to eq(I18n.t(:resource_not_found, scope: "spree.api"))
+        end
+
+        it "cannot get an image of another variant" do
+          get spree.api_variant_image_path(product.master.id, product_image)
+          expect(response.status).to eq(404)
+          expect(json_response['error']).to eq(I18n.t(:resource_not_found, scope: "spree.api"))
+        end
+
+        it "cannot update image of another product" do
+          expect(product_image.position).to eq(1)
+          put spree.api_variant_image_path(product.master.id, product_image), params: { image: { position: 2 } }
+          expect(response.status).to eq(404)
+          expect(json_response['error']).to eq(I18n.t(:resource_not_found, scope: "spree.api"))
         end
       end
     end
 
     context "as a non-admin" do
-      let(:product_image) { product.master.images.create!(attachment: image('thinking-cat.jpg')) }
+      let(:product_image) { product.master.images.create!(attachment: image("blank.jpg")) }
 
       it "cannot create an image" do
         post spree.api_product_images_path(product.id)

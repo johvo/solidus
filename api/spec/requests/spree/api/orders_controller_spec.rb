@@ -110,9 +110,11 @@ module Spree
       end
 
       context 'when the line items have custom attributes' do
-        it "can create an order with line items that have custom permitted attributes", :pending do
+        it "can create an order with line items that have custom permitted attributes" do
           PermittedAttributes.line_item_attributes << { options: [:some_option] }
-          expect_any_instance_of(Spree::LineItem).to receive(:some_option=).once.with('4')
+          without_partial_double_verification do
+            expect_any_instance_of(Spree::LineItem).to receive(:some_option=).once.with('4')
+          end
           post spree.api_orders_path, params: { order: { line_items: { "0" => { variant_id: variant.to_param, quantity: 5, options: { some_option: 4 } } } } }
           expect(response.status).to eq(201)
           order = Order.last
@@ -442,23 +444,43 @@ module Spree
       expect(json_response['email']).to eq "guest@spreecommerce.com"
     end
 
-    # Regression test for https://github.com/spree/spree/issues/3404
-    it "can specify additional parameters for a line item" do
-      without_partial_double_verification do
-        expect_any_instance_of(Spree::LineItem).to receive(:special=).with("foo")
-      end
+    context "specifying additional parameters for a line items" do
+      # Regression test for https://github.com/spree/spree/issues/3404
+      it "is allowed on line item level" do
+        without_partial_double_verification do
+          expect_any_instance_of(Spree::LineItem).to receive(:special=).with("foo")
+        end
 
-      allow_any_instance_of(Spree::Api::OrdersController).to receive_messages(permitted_line_item_attributes: [:id, :variant_id, :quantity, :special])
-      post spree.api_orders_path, params: {
-        order: {
-          line_items: {
-            "0" => {
-              variant_id: variant.to_param, quantity: 5, special: "foo"
+        allow_any_instance_of(Spree::Api::OrdersController).to receive_messages(permitted_line_item_attributes: [:id, :variant_id, :quantity, :special])
+        post spree.api_orders_path, params: {
+          order: {
+            line_items: {
+              "0" => {
+                variant_id: variant.to_param, quantity: 5, special: "foo"
+              }
             }
           }
         }
-      }
-      expect(response.status).to eq(201)
+        expect(response.status).to eq(201)
+      end
+
+      it "is allowed using options parameter" do
+        without_partial_double_verification do
+          expect_any_instance_of(Spree::LineItem).to receive(:special=).with("foo")
+        end
+
+        allow_any_instance_of(Spree::Api::OrdersController).to receive_messages(permitted_line_item_attributes: [:id, :variant_id, :quantity, options: :special])
+        post spree.api_orders_path, params: {
+          order: {
+            line_items: {
+              "0" => {
+                variant_id: variant.to_param, quantity: 5, options: { special: "foo" }
+              }
+            }
+          }
+        }
+        expect(response.status).to eq(201)
+      end
     end
 
     it "cannot arbitrarily set the line items price" do
@@ -499,12 +521,12 @@ module Spree
 
       let(:address_params) { { country_id: country.id } }
       let(:billing_address) {
-        { firstname: "Tiago", lastname: "Motta", address1: "Av Paulista",
+        { name: "Tiago Motta", address1: "Av Paulista",
                                 city: "Sao Paulo", zipcode: "01310-300", phone: "12345678",
                                 country_id: country.id }
       }
       let(:shipping_address) {
-        { firstname: "Tiago", lastname: "Motta", address1: "Av Paulista",
+        { name: "Tiago Motta", address1: "Av Paulista",
                                  city: "Sao Paulo", zipcode: "01310-300", phone: "12345678",
                                  country_id: country.id }
       }
@@ -560,13 +582,13 @@ module Spree
       end
 
       it "receives error message if trying to add billing address with errors" do
-        billing_address[:firstname] = ""
+        billing_address[:city] = ""
 
         put spree.api_order_path(order), params: { order: { bill_address_attributes: billing_address } }
 
         expect(json_response['error']).not_to be_nil
         expect(json_response['errors']).not_to be_nil
-        expect(json_response['errors']['bill_address.firstname'].first).to eq "can't be blank"
+        expect(json_response['errors']['bill_address.city'].first).to eq "can't be blank"
       end
 
       it "can add shipping address" do
@@ -580,13 +602,13 @@ module Spree
       it "receives error message if trying to add shipping address with errors" do
         order.update!(ship_address_id: nil)
 
-        shipping_address[:firstname] = ""
+        shipping_address[:city] = ""
 
         put spree.api_order_path(order), params: { order: { ship_address_attributes: shipping_address } }
 
         expect(json_response['error']).not_to be_nil
         expect(json_response['errors']).not_to be_nil
-        expect(json_response['errors']['ship_address.firstname'].first).to eq "can't be blank"
+        expect(json_response['errors']['ship_address.city'].first).to eq "can't be blank"
       end
 
       it "cannot set the user_id for the order" do
@@ -624,7 +646,7 @@ module Spree
         end
 
         it "can list its line items with images" do
-          order.line_items.first.variant.images.create!(attachment: image("thinking-cat.jpg"))
+          order.line_items.first.variant.images.create!(attachment: image("blank.jpg"))
 
           get spree.api_order_path(order)
 
@@ -883,6 +905,13 @@ module Spree
           put spree.api_order_path(order), params: { order: { user_id: user.id } }
           expect(response.status).to eq 200
           expect(json_response["user_id"]).to eq(user.id)
+        end
+
+        it "cannot cancel not completed order" do
+          put spree.cancel_api_order_path(order)
+
+          expect(json_response['error']).to eq(I18n.t(:could_not_transition, scope: "spree.api", resource: 'order'))
+          expect(response.status).to eq(422)
         end
       end
 

@@ -28,26 +28,38 @@ module Spree
     validates_associated :rules
 
     validates :name, presence: true
-    validates :path, uniqueness: { allow_blank: true }
+    validates :path, uniqueness: { allow_blank: true, case_sensitive: true }
     validates :usage_limit, numericality: { greater_than: 0, allow_nil: true }
     validates :per_code_usage_limit, numericality: { greater_than_or_equal_to: 0, allow_nil: true }
     validates :description, length: { maximum: 255 }
-    validate :apply_automatically_disallowed_with_codes_or_paths
+    validate :apply_automatically_disallowed_with_paths
 
     before_save :normalize_blank_values
 
     scope :coupons, -> { joins(:codes).distinct }
     scope :advertised, -> { where(advertise: true) }
     scope :active, -> do
+      return started_and_unexpired if Spree::Config.consider_actionless_promotion_active == true
+
+      has_actions.started_and_unexpired
+    end
+    scope :started_and_unexpired, -> do
       table = arel_table
       time = Time.current
+
       where(table[:starts_at].eq(nil).or(table[:starts_at].lt(time))).
         where(table[:expires_at].eq(nil).or(table[:expires_at].gt(time)))
+    end
+    scope :has_actions, -> do
+      joins(:promotion_actions)
     end
     scope :applied, -> { joins(:order_promotions).distinct }
 
     self.whitelisted_ransackable_associations = ['codes']
     self.whitelisted_ransackable_attributes = %w[name path promotion_category_id]
+    def self.ransackable_scopes(*)
+      %i(active)
+    end
 
     def self.order_activatable?(order)
       order && !UNACTIVATABLE_ORDER_STATES.include?(order.state)
@@ -81,7 +93,7 @@ module Spree
     end
 
     def active?
-      started? && not_expired?
+      started? && not_expired? && (Spree::Config.consider_actionless_promotion_active || actions.present?)
     end
 
     def inactive?
@@ -164,10 +176,10 @@ module Spree
     end
 
     def products
-      rules.where(type: "Spree::Promotion::Rules::Product").map(&:products).flatten.uniq
+      rules.where(type: "Spree::Promotion::Rules::Product").flat_map(&:products).uniq
     end
 
-    # Whether the promotion has exceeded it's usage restrictions.
+    # Whether the promotion has exceeded its usage restrictions.
     #
     # @param excluded_orders [Array<Spree::Order>] Orders to exclude from usage limit
     # @return true or false
@@ -257,10 +269,9 @@ module Spree
       match_policy == "all"
     end
 
-    def apply_automatically_disallowed_with_codes_or_paths
+    def apply_automatically_disallowed_with_paths
       return unless apply_automatically
 
-      errors.add(:apply_automatically, :disallowed_with_code) if codes.any?
       errors.add(:apply_automatically, :disallowed_with_path) if path.present?
     end
 

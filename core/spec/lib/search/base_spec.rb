@@ -11,15 +11,16 @@ RSpec.describe Spree::Core::Search::Base do
     @product1 = create(:product, name: "RoR Mug", price: 9.00)
     @product1.taxons << @taxon
     @product2 = create(:product, name: "RoR Shirt", price: 11.00)
+    @product3 = create(:product, name: "RoR Pants", price: 16.00)
   end
 
   it "returns all products by default" do
     params = { per_page: "" }
     searcher = Spree::Core::Search::Base.new(params)
-    expect(searcher.retrieve_products.count).to eq(2)
+    expect(searcher.retrieve_products.count).to eq(3)
   end
 
-  context "when include_images is included in the initalization params" do
+  context "when include_images is included in the initialization params" do
     let(:params) { { include_images: true, keyword: @product1.name, taxon: @taxon.id } }
     subject { described_class.new(params).retrieve_products }
 
@@ -35,9 +36,27 @@ RSpec.describe Spree::Core::Search::Base do
     end
   end
 
-  it "switches to next page according to the page parameter" do
-    @product3 = create(:product, name: "RoR Pants", price: 14.00)
+  context "when ascend_by_master_price scope is included in the initialization params" do
+    let(:params) { { search: { ascend_by_master_price: nil } } }
 
+    subject { described_class.new(params).retrieve_products }
+
+    it "returns products in ascending order" do
+      expect(subject.map { |product| product.price.to_i }).to eq [9, 11, 16]
+    end
+  end
+
+  context "when descend_by_master_price scope is included in the initialization params" do
+    let(:params) { { search: { descend_by_master_price: nil } } }
+
+    subject { described_class.new(params).retrieve_products }
+
+    it "returns products in descending order" do
+      expect(subject.map { |product| product.price.to_i }).to eq [16, 11, 9]
+    end
+  end
+
+  it "switches to next page according to the page parameter" do
     params = { per_page: "2" }
     searcher = Spree::Core::Search::Base.new(params)
     expect(searcher.retrieve_products.count).to eq(2)
@@ -51,7 +70,6 @@ RSpec.describe Spree::Core::Search::Base do
     params = { per_page: "",
                search: { "price_range_any" => ["Under $10.00"] } }
     searcher = Spree::Core::Search::Base.new(params)
-    expect(searcher.send(:get_base_scope).to_sql).to match /<= 10/
     expect(searcher.retrieve_products.count).to eq(1)
   end
 
@@ -59,12 +77,6 @@ RSpec.describe Spree::Core::Search::Base do
     params = { per_page: "",
                search: { "price_range_any" => ["Under $10.00", "$10.00 - $15.00"] } }
     searcher = Spree::Core::Search::Base.new(params)
-    expect(searcher.send(:get_base_scope).to_sql).to match /<= 10/
-    if Rails.gem_version >= Gem::Version.new('6.0.0')
-      expect(searcher.send(:get_base_scope).to_sql).to match /between 10\.0 and 15\.0/i
-    else
-      expect(searcher.send(:get_base_scope).to_sql).to match /between 10 and 15/i
-    end
     expect(searcher.retrieve_products.count).to eq(2)
   end
 
@@ -72,7 +84,7 @@ RSpec.describe Spree::Core::Search::Base do
     params = { per_page: "",
                search: { "name_not_cont" => "Shirt" } }
     searcher = Spree::Core::Search::Base.new(params)
-    expect(searcher.retrieve_products.count).to eq(1)
+    expect(searcher.retrieve_products.count).to eq(2)
   end
 
   it "accepts a current user" do

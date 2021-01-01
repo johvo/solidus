@@ -120,6 +120,8 @@ module Spree
         css_classes = options[:class] ? options[:class] + " spree_add_fields" : "spree_add_fields"
         link_to_with_icon('plus', name, 'javascript:', data: { target: target }, class: css_classes)
       end
+      deprecate link_to_add_fields: "Please use button_tag instead, Example: \n" \
+        "button_tag \"Name\", type: \"button\", data: { target: \"tbody#div\" }", deprecator: Spree::Deprecation
 
       # renders hidden field and link to remove record using nested_attributes
       def link_to_remove_fields(name, form, options = {})
@@ -130,6 +132,8 @@ module Spree
         link_to_with_icon('trash', name, url, class: "spree_remove_fields #{options[:class]}", data: { action: 'remove' }, title: t('spree.actions.remove')) +
           form.hidden_field(:_destroy)
       end
+      deprecate link_to_remove_fields: "Please use link_to_delete instead, Example: \n" \
+        "link_to_delete \"form.object\"", deprecator: Spree::Deprecation
 
       def spree_dom_id(record)
         dom_id(record, 'spree')

@@ -28,6 +28,7 @@ en:
         company: Company
         firstname: First Name
         lastname: Last Name
+        name: Name
         phone: Phone
         zipcode: Zip Code
       spree/adjustment:
@@ -115,7 +116,7 @@ en:
         considered_risky: Risky
         coupon_code: Coupon Code
         created_at: Order Date
-        email: Customer E-Mail
+        email: Customer Email
         included_tax_total: Tax (incl.)
         ip_address: IP Address
         item_total: Item Total
@@ -131,6 +132,7 @@ en:
         city: Billing address city
         firstname: Billing address first name
         lastname: Billing address last name
+        name: Billing address name
         phone: Billing address phone
         state: Billing address state
         zipcode: Billing address zipcode
@@ -139,6 +141,7 @@ en:
         city: Shipping address city
         firstname: Shipping address first name
         lastname: Shipping address last name
+        name: Shipping address name
         phone: Shipping address phone
         state: Shipping address state
         zipcode: Shipping address zipcode
@@ -174,6 +177,7 @@ en:
         cost_price: Cost Price
         depth: Depth
         description: Description
+        discontinue_on: Discontinue on
         height: Height
         master_price: Master Price
         meta_description: Meta Description
@@ -316,6 +320,8 @@ en:
         name: Name
         service_level: Service Level
         tracking_url: Tracking URL
+        stock_locations: Stock Locations
+        available_to_all: Available to all stock locations
       spree/shipping_rate:
         amount: Amount
         label: Label
@@ -356,6 +362,7 @@ en:
         default: Default
         default_currency: Default Currency
         mail_from_address: Mail From Address
+        bcc_email: BCC Email
         meta_description: Meta Description
         meta_keywords: Meta Keywords
         name: Site Name
@@ -468,6 +475,7 @@ en:
           attributes:
             price:
               not_a_number: is not valid
+              does_not_match_order_currency: Line item price currency must match order currency!
         spree/price:
           attributes:
             currency:
@@ -475,8 +483,11 @@ en:
         spree/promotion:
           attributes:
             apply_automatically:
-              disallowed_with_code: Disallowed for promotions with a code
               disallowed_with_path: Disallowed for promotions with a path
+        spree/promotion_code:
+          attributes:
+            base:
+              disallowed_with_apply_automatically: Could not create promotion code on promotion that apply automatically
         spree/refund:
           attributes:
             amount:
@@ -688,7 +699,7 @@ en:
         one: RMA Reason
         other: RMA Reasons
       spree/role:
-        one: Roles
+        one: Role
         other: Roles
       spree/shipment:
         one: Shipment
@@ -783,6 +794,7 @@ en:
       refund: Refund
       remove: Remove
       save: Save
+      send_email: Send Email
       ship: Ship
       split: Split
       update: Update
@@ -799,6 +811,8 @@ en:
     add_option_value: Add Option Value
     add_product: Add Product
     add_product_properties: Add Product Properties
+    add_variant_properties: Add Variant Properties
+    applies_to_all_variant_properties: Applies to all Variant Properties above
     add_rule_of_type: Add rule of type
     add_state: Add State
     add_stock: Add Stock
@@ -840,6 +854,11 @@ en:
           drag_and_drop: or drag and drop them here
           image_process_failed: Server failed to process the image
           upload_images: Upload Images
+      order:
+        events:
+          approve: Approve
+          cancel: Cancel
+          resume: Resume
       payments:
         source_forms:
           storecredit:
@@ -876,6 +895,9 @@ en:
         expired: Expired
         inactive: Inactive
         not_started: Not started
+      shipping_methods:
+        form:
+          stock_locations_placeholder: 'Choose stock locations'
       stock_locations:
         form:
           address: Address
@@ -1391,17 +1413,25 @@ en:
         available_on: This sets the availability date for the product. If this value
           is not set, or it is set to a date in the future, then the product is not
           available on the storefront.
+        discontinue_on: This sets the discontinue date for the product. If this value
+          is set to a date, then the product is not available on the storefront from
+          that day on anymore.
         promotionable: 'This determines whether or not promotions can apply to this
           product.<br/>Default: Checked'
         shipping_category: 'This determines what kind of shipping this product requires.<br/>
           Default: Default'
         tax_category: 'This determines what kind of taxation is applied to this product.<br/>
-          Default: None'
+          Default: %{default_tax_category}'
       spree/promotion:
         expires_at: This determines when the promotion expires. <br/> If no value
           is specified, the promotion will never expire.
         starts_at: This determines when the promotion can be applied to orders. <br/>
           If no value is specified, the promotion will be immediately available.
+        promo_code_will_be_disabled: Selecting this option, promo codes will be disabled for this promotion
+          because all its rules / actions will be applied automatically to all orders.
+      spree/shipping_method:
+        available_to_all: Uncheck to select specific stock locations this
+          shipping method will be available in.
       spree/stock_location:
         active: 'This determines whether stock from this location can be used when
           building packages.<br/> Default: Checked'
@@ -1423,6 +1453,8 @@ en:
           (orders which don't yet have an address).<br/> Default: None."
         code: 'An identifier for your store. Developers may need this value if you operate
           multiple storefronts.'
+      spree/tax_category:
+        is_default: 'When checked, this tax category will be selected by default when creating new products or variants.'
       spree/tax_rate:
         validity_period: This determines the validity period within which the tax
           rate is valid and will be applied to eligible items. <br /> If no start
@@ -1496,6 +1528,11 @@ en:
     iso_name: Iso Name
     item: Item
     item_description: Item Description
+    items_selected:
+      all: All Items Selected
+      none: No Item Selected
+      one: One Item Selected
+      custom: Items Selected
     item_total: Item Total
     item_total_rule:
       operators:
@@ -1566,6 +1603,7 @@ en:
     my_account: My Account
     my_orders: My Orders
     name: Name
+    name_contains: Name Contains
     name_on_card: Name on card
     name_or_sku: Name or SKU (enter at least first 4 characters of product name)
     negative_movement_absent_item: Cannot create negative movement for absent stock
@@ -1957,7 +1995,7 @@ en:
     select_a_stock_location: Select a stock location
     selected_quantity_not_available: selected of %{item} is not available.
     send_copy_of_all_mails_to: Send Copy of All Mails To
-    send_mailer: Send Mailer
+    send_mailer: Send Shipment Email
     send_mails_as: Send Mails As
     server: Server
     server_error: The server returned an error
@@ -1965,6 +2003,7 @@ en:
     ship: ship
     ship_address: Ship Address
     ship_address_required: Valid shipping address required
+    bill_address_required: Valid billing address required
     ship_total: Ship Total
     shipment: Shipment
     shipment_adjustments: Shipment adjustments

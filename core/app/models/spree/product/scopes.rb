@@ -29,11 +29,13 @@ module Spree
           scope :descend_by_name, -> { order(name: :desc) }
 
           add_search_scope :ascend_by_master_price do
-            joins(master: :default_price).order(Spree::Price.arel_table[:amount].asc)
+            joins(master: :default_price).select('spree_products.* , spree_prices.amount')
+                                         .order(Spree::Price.arel_table[:amount].asc)
           end
 
           add_search_scope :descend_by_master_price do
-            joins(master: :default_price).order(Spree::Price.arel_table[:amount].desc)
+            joins(master: :default_price).select('spree_products.* , spree_prices.amount')
+                                         .order(Spree::Price.arel_table[:amount].desc)
           end
 
           add_search_scope :price_between do |low, high|
@@ -182,7 +184,10 @@ module Spree
           end
           # Can't use add_search_scope for this as it needs a default argument
           def self.available(available_on = nil)
-            with_master_price.where("#{Spree::Product.quoted_table_name}.available_on <= ?", available_on || Time.current)
+            with_master_price
+              .where("#{Spree::Product.quoted_table_name}.available_on <= ?", available_on || Time.current)
+              .where("#{Spree::Product.quoted_table_name}.discontinue_on IS NULL OR" \
+                     "#{Spree::Product.quoted_table_name}.discontinue_on >= ?", Time.current)
           end
           search_scopes << :available
 
@@ -233,7 +238,7 @@ module Spree
 
             # specifically avoid having an order for taxon search (conflicts with main order)
             def prepare_taxon_conditions(taxons)
-              ids = taxons.map { |taxon| taxon.self_and_descendants.pluck(:id) }.flatten.uniq
+              ids = taxons.flat_map { |taxon| taxon.self_and_descendants.pluck(:id) }.uniq
               joins(:taxons).where("#{Spree::Taxon.table_name}.id" => ids)
             end
 

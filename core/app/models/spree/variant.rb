@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'discard'
-
 module Spree
   # == Master Variant
   #
@@ -20,11 +18,7 @@ module Spree
   class Variant < Spree::Base
     acts_as_list scope: :product
 
-    acts_as_paranoid
-    include Spree::ParanoiaDeprecations
-
-    include Discard::Model
-    self.discard_column = :deleted_at
+    include Spree::SoftDeletable
 
     after_discard do
       stock_items.discard_all
@@ -36,11 +30,11 @@ module Spree
     attr_writer :rebuild_vat_prices
     include Spree::DefaultPrice
 
-    belongs_to :product, -> { with_deleted }, touch: true, class_name: 'Spree::Product', inverse_of: :variants, optional: false
+    belongs_to :product, -> { with_discarded }, touch: true, class_name: 'Spree::Product', inverse_of: :variants, optional: false
     belongs_to :tax_category, class_name: 'Spree::TaxCategory', optional: true
 
-    delegate :name, :description, :slug, :available_on, :shipping_category_id,
-             :meta_description, :meta_keywords, :shipping_category,
+    delegate :name, :description, :slug, :available_on, :discontinue_on, :discontinued?,
+             :shipping_category_id, :meta_description, :meta_keywords, :shipping_category,
              to: :product
     delegate :tax_category, to: :product, prefix: true
     delegate :tax_rates, to: :tax_category
@@ -80,7 +74,7 @@ module Spree
 
     validates :cost_price, numericality: { greater_than_or_equal_to: 0, allow_nil: true }
     validates :price,      numericality: { greater_than_or_equal_to: 0, allow_nil: true }
-    validates_uniqueness_of :sku, allow_blank: true, if: :enforce_unique_sku?
+    validates_uniqueness_of :sku, allow_blank: true, case_sensitive: true, if: :enforce_unique_sku?
 
     after_create :create_stock_items
     after_create :set_position
@@ -391,9 +385,9 @@ module Spree
     #
     # @return [Array<Spree::VariantPropertyRuleValue>] variant_properties
     def variant_properties
-      product.variant_property_rules.map do |rule|
+      product.variant_property_rules.flat_map do |rule|
         rule.values if rule.applies_to_variant?(self)
-      end.flatten.compact
+      end.compact
     end
 
     # The gallery for the variant, which represents all the images

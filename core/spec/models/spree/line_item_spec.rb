@@ -81,35 +81,47 @@ RSpec.describe Spree::LineItem, type: :model do
         end
       end
 
-      it 'should display a deprecation warning' do
-        expect(Spree::Deprecation).to receive(:warn)
-        Spree::LineItem.new(variant: variant, order: order)
+      before do
+        expect(Spree::Deprecation).to receive(:warn).
+          with(/^You have overridden Spree::LineItem#copy_price/, any_args)
       end
 
       it 'should run the user-defined copy_price method' do
         expect_any_instance_of(Spree::LineItem).to receive(:copy_price).and_call_original
-        Spree::Deprecation.silence do
-          Spree::LineItem.new(variant: variant, order: order)
-        end
+        Spree::LineItem.new(variant: variant, order: order)
       end
     end
   end
 
   # TODO: Remove this spec after the method has been removed.
   describe '#discounted_amount' do
+    before do
+      expect(Spree::Deprecation).to receive(:warn).
+        with(/^discounted_amount is deprecated and will be removed/, any_args)
+    end
+
     it "returns the amount minus any discounts" do
       line_item.price = 10
       line_item.quantity = 2
       line_item.promo_total = -5
-      expect(Spree::Deprecation.silence { line_item.discounted_amount }).to eq(15)
+      expect(line_item.discounted_amount).to eq(15)
     end
   end
 
   # TODO: Remove this spec after the method has been removed.
   describe "#discounted_money" do
+    before do
+      allow(Spree::Deprecation).to receive(:warn).
+        with(/^discounted_amount is deprecated and will be removed/, any_args)
+      allow(Spree::Deprecation).to receive(:warn).
+        with(/^display_discounted_amount is deprecated and will be removed/, any_args)
+      expect(Spree::Deprecation).to receive(:warn).
+        with(/^discounted_money is deprecated and will be removed/, any_args)
+    end
+
     it "should return a money object with the discounted amount" do
-      expect(Spree::Deprecation.silence { line_item.discounted_amount }).to eq(10.00)
-      expect(Spree::Deprecation.silence { line_item.discounted_money.to_s }).to eq "$10.00"
+      expect(line_item.discounted_amount).to eq(10.00)
+      expect(line_item.discounted_money.to_s).to eq "$10.00"
     end
   end
 
@@ -220,10 +232,32 @@ RSpec.describe Spree::LineItem, type: :model do
     context 'when the price has a currency different from the order currency' do
       let(:currency) { "RUB" }
 
-      it 'raises an exception' do
-        expect {
+      before do
+        stub_spree_preferences(raise_with_invalid_currency: raise_with_invalid_currency)
+      end
+
+      context 'when raise_with_invalid_currency preference is true' do
+        let(:raise_with_invalid_currency) { true }
+
+        it 'raises an exception' do
+          expect {
+            line_item.money_price = new_price
+          }.to raise_exception(
+            Spree::LineItem::CurrencyMismatch,
+            'Line item price currency must match order currency!'
+          )
+        end
+      end
+
+      context 'when raise_with_invalid_currency preference is false' do
+        let(:raise_with_invalid_currency) { false }
+
+        it 'is not valid' do
           line_item.money_price = new_price
-        }.to raise_exception Spree::LineItem::CurrencyMismatch
+          expect(line_item).not_to be_valid
+          expect(line_item.errors[:price])
+            .to include 'Line item price currency must match order currency!'
+        end
       end
     end
   end

@@ -39,7 +39,7 @@ module Spree
     mattr_reader(*ATTRIBUTES)
 
     @@address_attributes = [
-      :id, :firstname, :lastname, :first_name, :last_name,
+      :id, :name, :firstname, :lastname, :first_name, :last_name,
       :address1, :address2, :city, :country_id, :state_id,
       :zipcode, :phone, :state_name, :country_iso, :alternative_phone, :company,
       country: [:iso, :name, :iso3, :iso_name],
@@ -69,7 +69,7 @@ module Spree
     @@product_properties_attributes = [:property_name, :value, :position]
 
     @@product_attributes = [
-      :name, :description, :available_on, :permalink, :meta_description,
+      :name, :description, :available_on, :discontinue_on, :permalink, :meta_description,
       :meta_keywords, :price, :sku, :deleted_at,
       :option_values_hash, :weight, :height, :width, :depth,
       :shipping_category_id, :tax_category_id,
@@ -107,7 +107,8 @@ module Spree
 
     @@store_attributes = [:name, :url, :seo_title, :meta_keywords,
                           :meta_description, :default_currency,
-                          :mail_from_address, :cart_tax_country_iso]
+                          :mail_from_address, :cart_tax_country_iso,
+                          :bcc_email]
 
     @@taxonomy_attributes = [:name]
 

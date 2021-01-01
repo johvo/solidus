@@ -199,6 +199,23 @@ RSpec.describe Spree::Adjustment, type: :model do
         it { is_expected.to include("can't be blank") }
       end
     end
+
+    context "when the adjustment is a promotion that apply automatically adjustment" do
+      let(:adjustment) { build(:adjustment, source: promotion.actions.first) }
+      let(:promotion) { create(:promotion, :with_order_adjustment, apply_automatically: true) }
+
+      context "when the promotion does not have a code" do
+        it { is_expected.to be_blank }
+      end
+
+      context "when the promotion has a code" do
+        let!(:promotion_code) do
+          promotion.codes << build(:promotion_code, promotion: promotion)
+        end
+
+        it { is_expected.to be_blank }
+      end
+    end
   end
 
   describe 'repairing adjustment associations' do
@@ -215,6 +232,13 @@ RSpec.describe Spree::Adjustment, type: :model do
             /Adjustment \d+ was not added to #{adjustable.class} #{adjustable.id}/,
             instance_of(Array),
           )
+        )
+      end
+
+      def doesnt_expect_deprecation_warning
+        expect(Spree::Deprecation).not_to receive(:warn).with(
+          /Adjustment \d+ was not added to #{adjustable.class} #{adjustable.id}/,
+          any_args
         )
       end
 
@@ -239,7 +263,7 @@ RSpec.describe Spree::Adjustment, type: :model do
 
           context 'when the adjustment is destroyed before after_commit runs' do
             it 'does not repair' do
-              expect(Spree::Deprecation).not_to receive(:warn)
+              doesnt_expect_deprecation_warning
               Spree::Adjustment.transaction do
                 adjustment = create_adjustment
                 adjustment.destroy!
@@ -250,7 +274,7 @@ RSpec.describe Spree::Adjustment, type: :model do
 
         context 'when adjustable.adjustments is not loaded' do
           it 'does repair' do
-            expect(Spree::Deprecation).not_to receive(:warn)
+            doesnt_expect_deprecation_warning
             create_adjustment
           end
         end
@@ -270,14 +294,14 @@ RSpec.describe Spree::Adjustment, type: :model do
           before { adjustable.adjustments.to_a }
 
           it 'does not repair' do
-            expect(Spree::Deprecation).not_to receive(:warn)
+            doesnt_expect_deprecation_warning
             create_adjustment
           end
         end
 
         context 'when adjustable.adjustments is not loaded' do
           it 'does not repair' do
-            expect(Spree::Deprecation).not_to receive(:warn)
+            doesnt_expect_deprecation_warning
             create_adjustment
           end
         end
@@ -298,6 +322,13 @@ RSpec.describe Spree::Adjustment, type: :model do
         )
       end
 
+      def doesnt_expect_deprecation_warning
+        expect(Spree::Deprecation).not_to receive(:warn).with(
+          /Adjustment #{adjustment.id} was not removed from #{adjustable.class} #{adjustable.id}/,
+          any_args
+        )
+      end
+
       context 'when destroying adjustments not via association' do
         context 'when adjustable.adjustments is loaded' do
           before { adjustable.adjustments.to_a }
@@ -311,7 +342,7 @@ RSpec.describe Spree::Adjustment, type: :model do
 
         context 'when adjustable.adjustments is not loaded' do
           it 'does not repair' do
-            expect(Spree::Deprecation).not_to receive(:warn)
+            doesnt_expect_deprecation_warning
             adjustment.destroy!
           end
         end
@@ -322,14 +353,14 @@ RSpec.describe Spree::Adjustment, type: :model do
           before { adjustable.adjustments.to_a }
 
           it 'does not repair' do
-            expect(Spree::Deprecation).not_to receive(:warn)
+            doesnt_expect_deprecation_warning
             adjustable.adjustments.destroy(adjustment)
           end
         end
 
         context 'when adjustable.adjustments is not loaded' do
           it 'does not repair' do
-            expect(Spree::Deprecation).not_to receive(:warn)
+            doesnt_expect_deprecation_warning
             adjustable.adjustments.destroy(adjustment)
           end
         end

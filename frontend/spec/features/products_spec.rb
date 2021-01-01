@@ -154,7 +154,9 @@ describe "Visiting Products", type: :feature, inaccessible: true do
 
     before do
       # Need to have two images to trigger the error
-      image = File.open(File.expand_path('../fixtures/thinking-cat.jpg', __dir__))
+      image = File.open(
+        File.join(Spree::Core::Engine.root, "lib", "spree", "testing_support", "fixtures", "blank.jpg")
+      )
       product.images.create!(attachment: image)
       product.images.create!(attachment: image)
 
@@ -184,7 +186,9 @@ describe "Visiting Products", type: :feature, inaccessible: true do
     let(:product) { Spree::Product.find_by(name: "Ruby on Rails Baseball Jersey") }
 
     before do
-      image = File.open(File.expand_path('../fixtures/thinking-cat.jpg', __dir__))
+      image = File.open(
+        File.join(Spree::Core::Engine.root, "lib", "spree", "testing_support", "fixtures", "blank.jpg")
+      )
       v1 = product.variants.create!(price: 9.99)
       v2 = product.variants.create!(price: 10.99)
       v1.images.create!(attachment: image)
@@ -193,7 +197,7 @@ describe "Visiting Products", type: :feature, inaccessible: true do
 
     it "should not display no image available" do
       visit spree.root_path
-      expect(page).to have_xpath("//img[contains(@src,'thinking-cat')]")
+      expect(page).to have_xpath("//img[contains(@src,'blank')]")
     end
   end
 
@@ -218,7 +222,7 @@ describe "Visiting Products", type: :feature, inaccessible: true do
     within(:css, '#sidebar_products_search') { click_button "Search" }
 
     expect(page.all('ul.product-listing li').size).to eq(3)
-    tmp = page.all('ul.product-listing li a').map(&:text).flatten.compact
+    tmp = page.all('ul.product-listing li a').flat_map(&:text).compact
     tmp.delete("")
     expect(tmp.sort!).to eq(["Ruby on Rails Mug", "Ruby on Rails Stein", "Ruby on Rails Tote"])
   end
@@ -245,7 +249,7 @@ describe "Visiting Products", type: :feature, inaccessible: true do
     within(:css, '#sidebar_products_search') { click_button "Search" }
 
     expect(page.all('ul.product-listing li').size).to eq(4)
-    tmp = page.all('ul.product-listing li a').map(&:text).flatten.compact
+    tmp = page.all('ul.product-listing li a').flat_map(&:text).compact
     tmp.delete("")
     expect(tmp.sort!).to eq(["Ruby on Rails Bag",
                              "Ruby on Rails Baseball Jersey",

@@ -3,6 +3,7 @@
 module Spree
   module Admin
     class TaxonsController < Spree::Admin::BaseController
+      rescue_from ActiveRecord::RecordNotFound, with: :resource_not_found
       respond_to :html, :json, :js
 
       def index
@@ -62,7 +63,13 @@ module Spree
         end
 
         respond_with(@taxon) do |format|
-          format.html { redirect_to edit_admin_taxonomy_url(@taxonomy) }
+          format.html do
+            if @taxon.valid?
+              redirect_to edit_admin_taxonomy_url(@taxonomy)
+            else
+              render :edit
+            end
+          end
         end
       end
 
@@ -76,6 +83,10 @@ module Spree
 
       def taxon_params
         params.require(:taxon).permit(permitted_taxon_attributes)
+      end
+
+      def resource_not_found
+        super(flash_class: Taxon, redirect_url: admin_taxonomies_path)
       end
     end
   end

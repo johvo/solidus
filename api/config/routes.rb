@@ -3,9 +3,11 @@
 Spree::Core::Engine.routes.draw do
   namespace :admin do
     resources :users do
+      resource :api_key, controller: 'users/api_key', only: [:create, :destroy]
+
       member do
-        put :generate_api_key
-        put :clear_api_key
+        put :generate_api_key # Deprecated
+        put :clear_api_key # Deprecated
       end
     end
   end
@@ -38,6 +40,8 @@ Spree::Core::Engine.routes.draw do
           put :cancel
         end
       end
+
+      resources :customer_returns, except: :destroy
     end
 
     resources :checkouts, only: [:update], concerns: :order_routes do
@@ -57,7 +61,6 @@ Spree::Core::Engine.routes.draw do
     end
     resources :option_values
 
-    resources :option_values, only: :index
     get '/orders/mine', to: 'orders#mine', as: 'my_orders'
     get "/orders/current", to: "orders#current", as: "current_order"
 

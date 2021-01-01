@@ -40,7 +40,7 @@ RSpec.feature "First Order promotion" do
     click_button "Apply Code"
     expect(page).to have_content("The coupon code was successfully applied to your order")
     click_on "Checkout"
-    fill_in "Customer E-Mail", with: "sam@tom.com"
+    fill_in "Customer Email", with: "sam@tom.com"
     fill_in_address
     click_on "Save and Continue"
     expect(page).to_not have_content("#summary-order-charges")
@@ -48,8 +48,7 @@ RSpec.feature "First Order promotion" do
 
   def fill_in_address
     address = "order_bill_address_attributes"
-    fill_in "#{address}_firstname", with: "Ryan"
-    fill_in "#{address}_lastname", with: "Bigg"
+    fill_in "#{address}_name", with: "Ryan Bigg"
     fill_in "#{address}_address1", with: "143 Swan Street"
     fill_in "#{address}_city", with: "Richmond"
     select "United States of America", from: "#{address}_country_id"

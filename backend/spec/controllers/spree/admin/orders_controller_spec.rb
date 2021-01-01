@@ -102,7 +102,7 @@ describe Spree::Admin::OrdersController, type: :controller do
       end
 
       context "when a user_id is passed as a parameter" do
-        let(:user)  { mock_model(Spree.user_class) }
+        let(:user)  { mock_model(Spree.user_class, ship_address: mock_model(Spree::Address), bill_address: nil) }
         before { allow(Spree.user_class).to receive_messages find_by: user }
 
         it "imports a new order and assigns the user to the order" do
@@ -396,13 +396,13 @@ describe Spree::Admin::OrdersController, type: :controller do
     end
   end
 
-  context "order number not given" do
+  context "existent order number not given" do
     stub_authorization!
 
-    it "raise active record not found" do
-      expect {
-        get :edit, params: { id: 0 }
-      }.to raise_error ActiveRecord::RecordNotFound
+    it "cannot find non-existent order" do
+      get :edit, params: { id: 0 }
+      expect(response).to redirect_to(spree.admin_orders_path)
+      expect(flash[:error]).to eql("Order is not found")
     end
   end
 end

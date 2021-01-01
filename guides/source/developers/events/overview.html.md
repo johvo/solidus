@@ -13,6 +13,7 @@ when an order is refunded successfully.
 
 Currently, the events fired by default in Solidus are:
 * `order_finalized`
+* `order_recalculated`
 * `reimbursement_reimbursed`
 * `reimbursement_errored`
 
@@ -48,6 +49,19 @@ Spree::Event.subscribe 'order_finalized' do |event|
 end
 ```
 
+When using the default event adapter it's possible to subscribe to multiple
+events using a regexp:
+
+```ruby
+Spree::Event.subscribe /.*\.spree$/ do |event|
+  puts "Event with name `#{event.name}` was just fired!"
+end
+```
+
+Please note that, unless you add explicitly the `.spree` suffix namespace,
+you will register to all ActiveSupportNotifications, including Rails internal
+ones.
+
 Another way to subscribe to events is creating a "subscriber" module that
 includes the `Spree::Event::Subscriber` module. For example:
 
@@ -81,10 +95,18 @@ method allows to map a method of the subscriber module to an event that
 happens in the system. If the `event_name` argument is not specified,
 the event name and the method name should match.
 
-These subscribers modules are loaded with the rest of your application but
-you need to manually subscribe to them.
+These subscriber modules are loaded with the rest of your application, you
+don't need to manually subscribe them when:
 
-For example, you could subscribe to them programmatically with something like:
+* `Spree::Config.events.autoload_subscribers` returns a truthy value (default);
+* you put them in the directory (or any subdirectory of) `app/subscribers`;
+* their filename ends with `_subscriber.rb`;
+
+On the other hand, if you need to resort to manual subscription because you did
+not follow the naming convention explained above, or you prefer to have complete
+control on what is loaded and when, you can override the default behaviour by
+setting `Spree::Config.events.autoload_subscribers = false` in a initializer.
+At that point you can subscribe your event subscribers, with something similar to:
 
 ```ruby
 if defined?(SmsLibrary)

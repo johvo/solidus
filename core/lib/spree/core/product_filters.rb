@@ -60,6 +60,7 @@ module Spree
         conds.each do |new_scope|
           scope = scope.or(new_scope)
         end
+
         Spree::Product.joins(master: :default_price).where(scope)
       end
 
@@ -70,9 +71,9 @@ module Spree
       def self.price_filter
         value = Spree::Price.arel_table
         conds = [[I18n.t('spree.under_price', price: format_price(10)), value[:amount].lteq(10)],
-                 ["#{format_price(10)} - #{format_price(15)}", value[:amount].in(10..15)],
-                 ["#{format_price(15)} - #{format_price(18)}", value[:amount].in(15..18)],
-                 ["#{format_price(18)} - #{format_price(20)}", value[:amount].in(18..20)],
+                 ["#{format_price(10)} - #{format_price(15)}", value[:amount].between(10..15)],
+                 ["#{format_price(15)} - #{format_price(18)}", value[:amount].between(15..18)],
+                 ["#{format_price(18)} - #{format_price(20)}", value[:amount].between(18..20)],
                  [I18n.t('spree.or_over_price', price: format_price(20)), value[:amount].gteq(20)]]
         {
           name:   I18n.t('spree.price_range'),
@@ -107,7 +108,7 @@ module Spree
         brand_property = Spree::Property.find_by(name: 'brand')
         brands = brand_property ? Spree::ProductProperty.where(property_id: brand_property.id).pluck(:value).uniq.map(&:to_s) : []
         pp = Spree::ProductProperty.arel_table
-        conds = Hash[*brands.map { |brand| [brand, pp[:value].eq(brand)] }.flatten]
+        conds = Hash[*brands.flat_map { |brand| [brand, pp[:value].eq(brand)] }]
         {
           name:   'Brands',
           scope:  :brand_any,
@@ -184,7 +185,7 @@ module Spree
       # idea: expand the format to allow nesting of labels?
       def self.all_taxons
         Spree::Deprecation.warn "all_taxons is deprecated in solidus_core. Please add it to your own application to continue using it."
-        taxons = Spree::Taxonomy.all.map { |element| [element.root] + element.root.descendants }.flatten
+        taxons = Spree::Taxonomy.all.flat_map { |element| [element.root] + element.root.descendants }
         {
           name:   'All taxons',
           scope:  :taxons_id_equals_any,

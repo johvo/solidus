@@ -245,7 +245,7 @@ describe "New Order", type: :feature do
     it "displays the user's email escaped without executing" do
       click_on "Customer"
       targetted_select2_search user.email, from: "#s2id_customer_search"
-      expect(page).to have_field("Customer E-Mail", with: xss_string)
+      expect(page).to have_field("Customer Email", with: xss_string)
     end
   end
 
@@ -367,8 +367,7 @@ describe "New Order", type: :feature do
   end
 
   def fill_in_address
-    fill_in "First Name",                with: "John 99"
-    fill_in "Last Name",                 with: "Doe"
+    fill_in "Name",                      with: "John 99 Doe"
     fill_in "Street Address",            with: "100 first lane"
     fill_in "Street Address (cont'd)",   with: "#101"
     fill_in "City",                      with: "Bethesda"

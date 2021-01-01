@@ -9,7 +9,7 @@ module Spree
       def index
         @product_properties = @product.
           product_properties.
-          accessible_by(current_ability, :read).
+          accessible_by(current_ability).
           ransack(params[:q]).
           result
 
@@ -36,9 +36,8 @@ module Spree
       end
 
       def update
-        if @product_property
-          authorize! :update, @product_property
-          @product_property.update(product_property_params)
+        authorize! :update, @product_property
+        if @product_property.update(product_property_params)
           respond_with(@product_property, status: 200, default_template: :show)
         else
           invalid_resource!(@product_property)
@@ -46,27 +45,23 @@ module Spree
       end
 
       def destroy
-        if @product_property
-          authorize! :destroy, @product_property
-          @product_property.destroy
-          respond_with(@product_property, status: 204)
-        else
-          invalid_resource!(@product_property)
-        end
+        authorize! :destroy, @product_property
+        @product_property.destroy
+        respond_with(@product_property, status: 204)
       end
 
       private
 
       def find_product
         @product = super(params[:product_id])
-        authorize! :read, @product
+        authorize! :show, @product
       end
 
       def product_property
         if @product
           @product_property ||= @product.product_properties.find_by(id: params[:id])
-          @product_property ||= @product.product_properties.includes(:property).where(spree_properties: { name: params[:id] }).first
-          authorize! :read, @product_property
+          @product_property ||= @product.product_properties.includes(:property).where(spree_properties: { name: params[:id] }).first!
+          authorize! :show, @product_property
         end
       end
 

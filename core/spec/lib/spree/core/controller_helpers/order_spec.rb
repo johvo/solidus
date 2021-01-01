@@ -2,12 +2,13 @@
 
 require 'rails_helper'
 
-class FakesController < ApplicationController
-  include Spree::Core::ControllerHelpers::Order
-end
-
 RSpec.describe Spree::Core::ControllerHelpers::Order, type: :controller do
-  controller(FakesController) {}
+  controller(ApplicationController) {
+    include Spree::Core::ControllerHelpers::Store
+    include Spree::Core::ControllerHelpers::Pricing
+    include Spree::Core::ControllerHelpers::Auth
+    include Spree::Core::ControllerHelpers::Order
+  }
 
   let(:user) { create(:user) }
   let(:order) { create(:order, user: user, store: store) }
@@ -20,27 +21,22 @@ RSpec.describe Spree::Core::ControllerHelpers::Order, type: :controller do
   end
 
   describe '#simple_current_order' do
+    before do
+      expect(Spree::Deprecation).to receive(:warn).
+        with(/^simple_current_order is deprecated and will be removed/, any_args)
+    end
+
     it "returns an empty order" do
-      Spree::Deprecation.silence do
-        expect(controller.simple_current_order.item_count).to eq 0
-      end
+      expect(controller.simple_current_order.item_count).to eq 0
     end
+
     it 'returns Spree::Order instance' do
-      Spree::Deprecation.silence do
-        allow(controller).to receive_messages(cookies: double(signed: { guest_token: order.guest_token }))
-        expect(controller.simple_current_order).to eq order
-      end
+      allow(controller).to receive_messages(cookies: double(signed: { guest_token: order.guest_token }))
+      expect(controller.simple_current_order).to eq order
     end
+
     it 'assigns the current_store id' do
-      Spree::Deprecation.silence do
-        expect(controller.simple_current_order.store_id).to eq store.id
-      end
-    end
-    it 'is deprecated' do
-      Spree::Deprecation.silence do
-        expect(Spree::Deprecation).to(receive(:warn))
-        controller.simple_current_order
-      end
+      expect(controller.simple_current_order.store_id).to eq store.id
     end
   end
 
@@ -72,6 +68,23 @@ RSpec.describe Spree::Core::ControllerHelpers::Order, type: :controller do
         }.to change {
           Spree::Order.last.try!(:last_ip_address)
         }.from(nil).to("0.0.0.0")
+      end
+    end
+
+    context 'build_order_if_necessary option is true' do
+      subject { controller.current_order(build_order_if_necessary: true) }
+
+      it 'builds a new order' do
+        expect { subject }.not_to change(Spree::Order, :count).from(0)
+        expect(subject).not_to be_persisted
+      end
+
+      it 'assigns the current_store id' do
+        expect(subject.store_id).to eq store.id
+      end
+
+      it 'records last_ip_address' do
+        expect(subject.last_ip_address).to eq("0.0.0.0")
       end
     end
   end

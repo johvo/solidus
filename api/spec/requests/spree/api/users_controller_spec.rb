@@ -47,8 +47,7 @@ module Spree
         put spree.api_user_path(user.id), params: { token: user.spree_api_key, user: {
           email: "mine@example.com",
           bill_address_attributes: {
-            first_name: 'First',
-            last_name: 'Last',
+            name: 'First Last',
             address1: '1 Test Rd',
             city: 'City',
             country_id: country.id,
@@ -57,8 +56,7 @@ module Spree
             phone: '5555555555'
           },
           ship_address_attributes: {
-            first_name: 'First',
-            last_name: 'Last',
+            name: 'First Last',
             address1: '1 Test Rd',
             city: 'City',
             country_id: country.id,
@@ -145,6 +143,21 @@ module Spree
         delete spree.api_user_path(user)
         expect(response.status).to eq(422)
         expect(json_response).to eq({ "error" => "Cannot delete record." })
+      end
+
+      it "returns distinct search results" do
+        distinct_user = create(:user, email: 'distinct_test@solidus.com')
+        distinct_user.addresses << create(:address)
+        distinct_user.addresses << create(:address)
+        get spree.api_users_path, params: {
+          q: {
+            m: 'or',
+            email_start: 'distinct_test',
+            firstname_or_lastname_start: 'distinct_test'
+          }
+        }
+        expect(json_response['count']).to eq(1)
+        expect(json_response['users'].first['email']).to eq distinct_user.email
       end
     end
   end

@@ -141,6 +141,17 @@ describe Spree::Admin::WidgetsController, type: :controller do
         expect(flash[:error]).to eq assigns(:widget).errors.full_messages.join(', ')
       end
     end
+
+    context 'resource invalid' do
+      before do
+        allow_any_instance_of(Widget).to receive(:update).and_raise(ActiveRecord::RecordInvalid)
+      end
+
+      it 'returns to edit page with error' do
+        put :update, params: params
+        expect(flash[:error]).to eq('Record invalid')
+      end
+    end
   end
 
   describe '#destroy' do
@@ -196,6 +207,35 @@ describe Spree::Admin::WidgetsController, type: :controller do
 
     it 'updates the position of widget 2' do
       expect { subject }.to change { widget_2.reload.position }.from(2).to(1)
+    end
+
+    context 'passing a not persisted item' do
+      subject do
+        post :update_positions, params: { id: widget_1.to_param,
+          positions: { widget_1.id => '2', widget_2.id => '1', 'widget' => '3' }, format: 'js' }
+      end
+
+      it 'only updates the position of persisted attributes' do
+        subject
+        expect(Widget.all.order('position')).to eq [widget_2, widget_1]
+      end
+    end
+  end
+
+  describe 'rescue_from ActveRecord::RecordNotFound' do
+    let(:widget) { Widget.create!(name: 'a widget') }
+
+    subject do
+      get :edit, params: { id: widget.to_param }
+    end
+
+    it 'shows an error message with a reference to the model that was not found and redirect to the collection' do
+      allow(controller).to receive(:edit) { Spree::Product.find(123) }
+
+      subject
+
+      expect(response).to redirect_to('/admin/widgets')
+      expect(flash[:error]).to eql('Product is not found')
     end
   end
 end

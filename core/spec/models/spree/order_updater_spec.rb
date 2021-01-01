@@ -372,7 +372,7 @@ module Spree
     end
 
     context "updating payment state" do
-      let(:order) { Order.new }
+      let(:order) { build(:order) }
       let(:updater) { order.updater }
       before { allow(order).to receive(:refund_total).and_return(0) }
 
@@ -550,6 +550,50 @@ module Spree
         expect {
           order.recalculate
         }.to change { line_item.reload.adjustment_total }.from(100).to(0)
+      end
+    end
+
+    context "with 'order_recalculated' event subscription" do
+      let(:item) { spy('object') }
+
+      let!(:event) do
+        Spree::Event.subscribe :order_recalculated do
+          item.do_something
+        end
+      end
+
+      after { Spree::Event.unsubscribe event }
+
+      it "fires the 'order_recalculated' event" do
+        order.recalculate
+
+        expect(item).to have_received(:do_something)
+      end
+    end
+
+    context "with invalid associated objects" do
+      let(:order) { Spree::Order.create(ship_address: Spree::Address.new) }
+
+      before do
+        stub_spree_preferences(run_order_validations_on_order_updater: run_order_validations_on_order_updater)
+      end
+
+      context "when run_order_validations_on_order_updater is true" do
+        let(:run_order_validations_on_order_updater) { true }
+        subject { updater.update }
+
+        it "raises because of the invalid object" do
+          expect { subject }.to raise_error(ActiveRecord::RecordInvalid)
+        end
+      end
+
+      context "when run_order_validations_on_order_updater is false" do
+        let(:run_order_validations_on_order_updater) { false }
+        subject { updater.update }
+
+        it "does not raise because of the invalid object" do
+          expect { subject }.not_to raise_error
+        end
       end
     end
   end

@@ -21,7 +21,7 @@ module Spree
 
       def collection
         if params[:deleted] == "on"
-          base_variant_scope ||= super.with_deleted
+          base_variant_scope ||= super.with_discarded
         else
           base_variant_scope ||= super
         end
@@ -43,8 +43,10 @@ module Spree
       end
 
       def parent
-        @parent ||= Spree::Product.with_deleted.find_by(slug: params[:product_id])
+        @parent ||= Spree::Product.with_discarded.find_by!(slug: params[:product_id])
         @product = @parent
+      rescue ActiveRecord::RecordNotFound
+        resource_not_found(flash_class: Spree::Product, redirect_url: admin_products_path)
       end
     end
   end

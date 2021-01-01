@@ -37,13 +37,15 @@ module Spree
       end
 
       def find_resource
-        Spree::CustomerReturn.accessible_by(current_ability, :read).find(params[:id])
+        Spree::CustomerReturn.accessible_by(current_ability, :show).find(params[:id])
       end
 
       def collection
         parent # trigger loading the order
+        return unless @order
+
         @collection ||= Spree::ReturnItem
-          .accessible_by(current_ability, :read)
+          .accessible_by(current_ability)
           .where(inventory_unit_id: @order.inventory_units.pluck(:id))
           .map(&:customer_return).uniq.compact
         @customer_returns = @collection
@@ -69,8 +71,6 @@ module Spree
           next unless item_params.delete('returned') == '1'
           return_item = item_params[:id] ? Spree::ReturnItem.find(item_params[:id]) : Spree::ReturnItem.new
           return_item.assign_attributes(item_params)
-
-          return_item.skip_customer_return_processing = true
 
           if item_params[:reception_status_event].blank?
             return redirect_to(new_object_url, flash: { error: 'Reception status choice required' })

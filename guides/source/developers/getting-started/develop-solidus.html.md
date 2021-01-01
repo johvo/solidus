@@ -27,14 +27,14 @@ By default, the sandbox includes [`solidus_auth_devise`][solidus-auth-devise],
 and the generator seeds the database and loads sample data.
 
 ```bash
-bundle exec rake sandbox
+bin/sandbox
 ```
 
 You can prepend `DB=mysql` or `DB=postgresql` to the command in order use those
 databases instead of the default SQLite 3 database. For example:
 
 ```bash
-env DB=postgresql bundle exec rake sandbox
+env DB=postgresql bin/sandbox
 ```
 
 After the sandbox has been generated, you can change into its directory and
@@ -42,7 +42,7 @@ start the server:
 
 ```bash
 cd sandbox
-rails server
+bin/rails server
 ```
 
 If you need to create a Rails 5.2 application for your sandbox, for example
@@ -52,7 +52,7 @@ use the `RAILS_VERSION` environment variable.
 ```bash
   export RAILS_VERSION='~> 5.2.0'
   bundle install
-  bundle exec rake sandbox
+  bin/sandbox
 ```
 
 [contributing]: https://github.com/solidusio/solidus/blob/master/CONTRIBUTING.md
@@ -128,7 +128,7 @@ env COVERAGE=true bundle exec rspec
 You can add additional features to your store using Solidus extensions. A list
 of supported extensions can be found at [extensions.solidus.io][extensions].
 
-You can use the [`solidus_cmd`][solidus-cmd] gem as an example if you want to
+You can use the [`solidus_dev_support`][solidus_dev_support] gem as an example if you want to
 start creating a new Solidus extension. Check out the doc on
 [writing extensions][writing-extensions] to learn more.
 
@@ -136,4 +136,4 @@ start creating a new Solidus extension. Check out the doc on
 [circleci]: https://circleci.com/gh/solidusio/solidus
 [extensions]: http://extensions.solidus.io
 [writing-extensions]: https://guides.solidus.io/developers/extensions/writing-extensions.html
-[solidus-cmd]: https://github.com/solidusio/solidus_cmd
+[solidus_dev_support]: https://github.com/solidusio/solidus_dev_support

@@ -25,35 +25,27 @@ describe Spree::Admin::SearchController, type: :controller do
     end
 
     context 'when searching by user attributes' do
-      let(:params) { { q: user_attribute } }
+      let(:params) { { q: search_query } }
+
+      def starting_letters(string)
+        string.first(3)
+      end
 
       context 'when searching by email' do
         it_should_behave_like 'user found by search' do
-          let(:user_attribute) { user.email }
+          let(:search_query) { starting_letters(user.email) }
         end
       end
 
-      context 'when searching by ship addresss first name' do
+      context 'when searching by ship addresss name' do
         it_should_behave_like 'user found by search' do
-          let(:user_attribute) { user.ship_address.firstname }
+          let(:search_query) { starting_letters(user.ship_address.name) }
         end
       end
 
-      context 'when searching by ship address last name' do
+      context 'when searching by bill address name' do
         it_should_behave_like 'user found by search' do
-          let(:user_attribute) { user.ship_address.lastname }
-        end
-      end
-
-      context 'when searching by bill address first name' do
-        it_should_behave_like 'user found by search' do
-          let(:user_attribute) { user.bill_address.firstname }
-        end
-      end
-
-      context 'when searching by bill address last name' do
-        it_should_behave_like 'user found by search' do
-          let(:user_attribute) { user.bill_address.lastname }
+          let(:search_query) { starting_letters(user.bill_address.name) }
         end
       end
     end

@@ -7,15 +7,17 @@
 [![License](http://img.shields.io/badge/license-BSD-yellowgreen.svg)](LICENSE.md)
 [![Reviewed by Hound](https://img.shields.io/badge/Reviewed_by-Hound-8E64B0.svg)](https://houndci.com)
 
-[![Enthusiasts on Open Collective](https://opencollective.com/solidus/tiers/enthusiast/badge.svg?label=Enthusiasts&color=brightgree)](https://opencollective.com/solidus)
 [![Supporters on Open Collective](https://opencollective.com/solidus/tiers/supporter/badge.svg?label=Supporters&color=brightgree)](https://opencollective.com/solidus)
-[![Ambassadors on Open Collective](https://opencollective.com/solidus/tiers/ambassador/badge.svg?label=Ambassador&color=brightgree)](https://opencollective.com/solidus)
+[![Bronze Partners on Open Collective](https://opencollective.com/solidus/tiers/bronze/badge.svg?label=Bronze&nbsp;Partners&color=brightgree)](https://opencollective.com/solidus)
+[![Silver Partners on Open Collective](https://opencollective.com/solidus/tiers/silver/badge.svg?label=Silver&nbsp;Partners&color=brightgree)](https://opencollective.com/solidus)
+[![Gold Partners on Open Collective](https://opencollective.com/solidus/tiers/gold/badge.svg?label=Gold&nbsp;Partners&color=brightgree)](https://opencollective.com/solidus)
 [![Open Source Helpers](https://www.codetriage.com/solidusio/solidus/badges/users.svg)](https://www.codetriage.com/solidusio/solidus)
 [![Slack](http://slack.solidus.io/badge.svg)](http://slack.solidus.io)
 
 **A free, open-source ecommerce platform that gives you complete control over your store.**
 
 - **Visit our website**: [https://solidus.io/](https://solidus.io/)
+- **Read our Community Guidelines**: [https://solidus.io/community-guidelines/](https://solidus.io/community-guidelines/)
 - **Read our guides**: [https://guides.solidus.io/developers/](https://guides.solidus.io/developers/)
 - **Join our Slack**: [http://slack.solidus.io/](http://slack.solidus.io/)
 - **Solidus Security**: [mailing list](https://groups.google.com/forum/#!forum/solidus-security)
@@ -45,9 +47,9 @@ At present, Nebulab is the main code contributor and director of Solidus, provid
 ### Ambassadors
 Support this project by becoming a Solidus Ambassador. Your logo will show up here with a link to your website. [Become an Ambassador](https://opencollective.com/solidus).
 
-|[![Engine](https://images.opencollective.com/proxy/images?src=https%3A%2F%2Flogo.clearbit.com%2Fenginecommerce.com&height=100)](https://www.enginecommerce.com/)|[![Super Good Software](https://images.opencollective.com/proxy/images?src=https%3A%2F%2Fopencollective-production.s3-us-west-1.amazonaws.com%2F3bbb1440-727f-11e9-a366-37673cc38cee.png&height=100)](https://supergood.software/)|[![Karma Creative](https://images.opencollective.com/proxy/images?src=https%3A%2F%2Fopencollective-production.s3-us-west-1.amazonaws.com%2Fab94d2a0-7253-11e9-a366-37673cc38cee.png&height=100)](https://karmacreative.io/)|
-[![ModdedEuros](https://images.opencollective.com/proxy/images?src=https%3A%2F%2Fimages.opencollective.com%2Fmodded-euros%2Ff1a80ae%2Flogo.png&height=100)](https://www.moddedeuros.com)|
-|---|---|---|---|
+[![Super Good Software](https://images.opencollective.com/proxy/images?src=https%3A%2F%2Fopencollective-production.s3-us-west-1.amazonaws.com%2F3bbb1440-727f-11e9-a366-37673cc38cee.png&height=100)](https://supergood.software/)
+[![Karma Creative](https://images.opencollective.com/proxy/images?src=https%3A%2F%2Fopencollective-production.s3-us-west-1.amazonaws.com%2Fab94d2a0-7253-11e9-a366-37673cc38cee.png&height=100)](https://karmacreative.io/)
+[![ModdedEuros](https://images.opencollective.com/proxy/images?src=https%3A%2F%2Fimages.opencollective.com%2Fmodded-euros%2Ff1a80ae%2Flogo.png&height=100)](https://www.moddedeuros.com)
 
 ---
 
@@ -100,34 +102,56 @@ required for Paperclip. (You can install it using [Homebrew](https://brew.sh) if
 you're on a Mac.)
 
 To add solidus, begin with a Rails 5/6 application and a database configured and
-created. Add the following to your Gemfile.
+created.
 
-```ruby
-gem 'solidus'
-gem 'solidus_auth_devise'
-```
+### Installing Solidus
 
-Run the `bundle` command to install.
+<details>
+  <summary>For Solidus v2.10 and below</summary>
 
-After installing gems, you'll have to run the generators to create necessary
-configuration files and migrations.
+  Add the following to your Gemfile. Skip the `solidus_auth_devise` part
+  if you want to use a custom authentication system.
+
+  ```ruby
+  gem 'solidus'
+  gem 'solidus_auth_devise'
+  ```
+
+  Run the `bundle` command to install.
+
+  After installing gems, you'll have to run the generator to create necessary
+  configuration files and migrations.
+
+  ```bash
+  bin/rails g spree:install
+  ```
+</details>
+
+<details>
+  <summary>For Solidus v2.11 (still unreleased) and above</summary>
+
+  Add the following to your Gemfile.
+
+  ```ruby
+  gem 'solidus'
+  ```
+
+  Run the `bundle` command to install.
+
+  After installing gems, you'll have to run the generator to create necessary
+  configuration files and migrations.
+
+  ```bash
+  bin/rails g solidus:install
+  ```
+</details>
+
+### Accessing Solidus Store
+
+Start the Rails server with the command:
 
 ```bash
-bundle exec rails g spree:install
-bundle exec rails g solidus:auth:install
-bundle exec rake railties:install:migrations
-```
-
-Run migrations to create the new models in the database.
-
-```bash
-bundle exec rake db:migrate
-```
-
-Finally start the rails server
-
-```bash
-bundle exec rails s
+bin/rails s
 ```
 
 The [`solidus_frontend`](https://github.com/solidusio/solidus/tree/master/frontend) storefront will be accessible at [http://localhost:3000/](http://localhost:3000/)
@@ -155,20 +179,20 @@ gem 'solidus', github: 'solidusio/solidus'
 **Note: The master branch is not guaranteed to ever be in a fully functioning
 state. It is too risky to use this branch in production.**
 
-By default, the installation generator (`rails g spree:install`) will run
+By default, the installation generator (`solidus:install`) will run
 migrations as well as adding seed and sample data. This can be disabled using
 
 ```bash
-rails g spree:install --migrate=false --sample=false --seed=false
+bin/rails g solidus:install --migrate=false --sample=false --seed=false
 ```
 
 You can always perform any of these steps later by using these commands.
 
 ```bash
-bundle exec rake railties:install:migrations
-bundle exec rake db:migrate
-bundle exec rake db:seed
-bundle exec rake spree_sample:load
+bin/rails railties:install:migrations
+bin/rails db:migrate
+bin/rails db:seed
+bin/rails spree_sample:load
 ```
 
 There are also options and rake tasks provided by
@@ -215,17 +239,19 @@ and/or customizations to the Solidus admin. Use at your own risk.
 * Install the gem dependencies
 
   ```bash
-  bundle install
+  bin/setup
   ```
 
   _Note_: If you're using PostgreSQL or MySQL, you'll need to install those gems through the DB environment variable.
 
   ```bash
   # PostgreSQL
-  DB=postgresql bundle install
+  export DB=postgresql
+  bin/setup
 
   # MySQL
-  DB=mysql bundle install
+  export DB=mysql
+  bin/setup
   ```
 
 ### Sandbox
@@ -240,17 +266,19 @@ data already loaded.
 * Create the sandbox application
 
   ```bash
-  bundle exec rake sandbox
+  bin/sandbox
   ```
 
   You can create a sandbox with PostgreSQL or MySQL by setting the DB environment variable.
 
   ```bash
   # PostgreSQL
-  DB=postgresql bundle exec rake sandbox
+  export DB=postgresql
+  bin/sandbox
 
   # MySQL
-  DB=mysql bundle exec rake sandbox
+  export DB=mysql
+  bin/sandbox
   ```
 
   If you need to create a Rails 5.2 application for your sandbox, for example
@@ -259,15 +287,14 @@ data already loaded.
 
   ```bash
     export RAILS_VERSION='~> 5.2.0'
-    bundle install
-    bundle exec rake sandbox
+    bin/setup
+    bin/sandbox
   ```
 
-* Start the server
+* Start the server (`bin/rails` will forward any argument to the sandbox)
 
   ```bash
-  cd sandbox
-  rails server
+  bin/rails server
   ```
 
 ### Tests
@@ -342,7 +369,7 @@ project.
 A list can be found at [extensions.solidus.io](http://extensions.solidus.io/).
 
 If you want to write an extension for Solidus, you can use the
-[solidus_cmd](https://www.github.com/solidusio/solidus_cmd.git) gem.
+[solidus_dev_support](https://github.com/solidusio/solidus_dev_support.git) gem.
 
 ## Contributing
 

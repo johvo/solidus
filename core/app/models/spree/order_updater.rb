@@ -17,7 +17,7 @@ module Spree
     # object with callbacks (otherwise you will end up in an infinite recursion as the
     # associations try to save and then in turn try to call +update!+ again.)
     def update
-      @order.transaction do
+      order.transaction do
         update_item_count
         update_shipment_amounts
         update_totals
@@ -26,12 +26,17 @@ module Spree
           update_shipments
           update_shipment_state
         end
-        run_hooks
+        run_hooks if update_hooks.any?
+        Spree::Event.fire 'order_recalculated', order: order
         persist_totals
       end
     end
 
     def run_hooks
+      Spree::Deprecation.warn \
+        "This method is deprecated. Please run your hooks by subscribing " \
+        "to `order_recalculated` and/or `order_finalized` events instead, depending " \
+        " on when OrderUpdater#run_hooks was called.", caller(1)
       update_hooks.each { |hook| order.send hook }
     end
 
@@ -136,20 +141,16 @@ module Spree
     end
 
     def update_shipment_amounts
-      shipments.each do |shipment|
-        shipment.update_amounts
-      end
+      shipments.each(&:update_amounts)
     end
 
     # give each of the shipments a chance to update themselves
     def update_shipments
-      shipments.each do |shipment|
-        shipment.update_state
-      end
+      shipments.each(&:update_state)
     end
 
     def update_payment_total
-      order.payment_total = payments.completed.includes(:refunds).map { |payment| payment.amount - payment.refunds.sum(:amount) }.sum
+      order.payment_total = payments.completed.includes(:refunds).sum { |payment| payment.amount - payment.refunds.sum(:amount) }
     end
 
     def update_shipment_total
@@ -185,7 +186,7 @@ module Spree
     end
 
     def persist_totals
-      order.save!(validate: false)
+      order.save!(validate: Spree::Config.run_order_validations_on_order_updater)
     end
 
     def log_state_change(name)

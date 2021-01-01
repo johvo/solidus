@@ -34,11 +34,20 @@ module Spree
         end
 
         def image(filename)
-          File.open(Spree::Api::Engine.root + "spec/fixtures" + filename)
+          File.open(
+            File.join(
+              Spree::Core::Engine.root,
+              "lib",
+              "spree",
+              "testing_support",
+              "fixtures",
+              filename
+            )
+          )
         end
 
         def upload_image(filename)
-          fixture_file_upload(image(filename).path, 'image/jpg')
+          Rack::Test::UploadedFile.new(File.open(image(filename).path), 'image/jpg')
         end
       end
     end

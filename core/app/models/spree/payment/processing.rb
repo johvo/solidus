@@ -46,18 +46,20 @@ module Spree
       # Takes the amount in cents to capture.
       # Can be used to capture partial amounts of a payment, and will create
       # a new pending payment record for the remaining amount to capture later.
-      def capture!(amount = nil)
+      def capture!(capture_amount = nil)
         return true if completed?
-        amount ||= money.money.cents
+        return false unless amount.positive?
+
+        capture_amount ||= money.money.cents
         started_processing!
         protect_from_connection_error do
           # Standard ActiveMerchant capture usage
           response = payment_method.capture(
-            amount,
+            capture_amount,
             response_code,
             gateway_options
           )
-          money = ::Money.new(amount, currency)
+          money = ::Money.new(capture_amount, currency)
           capture_events.create!(amount: money.to_d)
           update!(amount: captured_amount)
           handle_response(response, :complete, :failure)
@@ -66,6 +68,8 @@ module Spree
 
       def void_transaction!
         return true if void?
+        return false unless amount.positive?
+
         protect_from_connection_error do
           if payment_method.payment_profiles_supported?
             # Gateways supporting payment profiles will need access to credit card object because this stores the payment profile information
@@ -115,6 +119,22 @@ module Spree
         options[:shipping_address] = order.ship_address.try!(:active_merchant_hash)
 
         options
+      end
+
+      # The unique identifier to be passed in to the payment gateway
+      def gateway_order_id
+        "#{order.number}-#{number}"
+      end
+
+      def handle_void_response(response)
+        record_response(response)
+
+        if response.success?
+          self.response_code = response.authorization
+          void
+        else
+          gateway_error(response)
+        end
       end
 
       private
@@ -182,17 +202,6 @@ module Spree
         end
       end
 
-      def handle_void_response(response)
-        record_response(response)
-
-        if response.success?
-          self.response_code = response.authorization
-          void
-        else
-          gateway_error(response)
-        end
-      end
-
       def record_response(response)
         log_entries.create!(details: response.to_yaml)
       end
@@ -204,21 +213,36 @@ module Spree
       end
 
       def gateway_error(error)
-        if error.is_a? ActiveMerchant::Billing::Response
-          text = error.params['message'] || error.params['response_reason_text'] || error.message
-        elsif error.is_a? ActiveMerchant::ConnectionError
-          text = I18n.t('spree.unable_to_connect_to_gateway')
-        else
-          text = error.to_s
-        end
-        logger.error(I18n.t('spree.gateway_error'))
-        logger.error("  #{error.to_yaml}")
-        raise Core::GatewayError.new(text)
+        message, log = case error
+                       when ActiveMerchant::Billing::Response
+                          [
+                            error.params['message'] || error.params['response_reason_text'] || error.message,
+                            basic_response_info(error)
+                          ]
+                        when ActiveMerchant::ConnectionError
+                          [I18n.t('spree.unable_to_connect_to_gateway')] * 2
+                        else
+                          [error.to_s, error]
+                        end
+
+        logger.error("#{I18n.t('spree.gateway_error')}: #{log}")
+        raise Core::GatewayError.new(message)
       end
 
-      # The unique identifier to be passed in to the payment gateway
-      def gateway_order_id
-        "#{order.number}-#{number}"
+      # The gateway response information without the params since the params
+      # can contain PII.
+      def basic_response_info(response)
+        {
+          message: response.message,
+          test: response.test,
+          authorization: response.authorization,
+          avs_result: response.avs_result,
+          cvv_result: response.cvv_result,
+          error_code: response.error_code,
+          emv_authorization: response.emv_authorization,
+          gateway_order_id: gateway_order_id,
+          order_number: order.number
+        }
       end
     end
   end
